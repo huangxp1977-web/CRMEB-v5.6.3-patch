@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "个人中心",
+  "enablePullDownRefresh": true,
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "page-footer": "/components/pageFooter/index",
+    "edit-user-modal": "/components/eidtUserModal/index"
+  }
+}
