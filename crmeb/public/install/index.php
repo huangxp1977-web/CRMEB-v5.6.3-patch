@@ -20,8 +20,8 @@ if (file_exists('../install.lock')) {
 if ('7.1.0' > phpversion()) {
     exit('您的php版本过低，不能安装本软件，兼容php版本7.1~7.4，谢谢！');
 }
-if (phpversion() >= '8.0.0') {
-    exit('您的php版本太高，不能安装本软件，兼容php版本7.1~7.4，谢谢！');
+if (phpversion() >= '8.3.0') {
+    exit('您的php版本太高，不能安装本软件，兼容php版本7.1~8.2，谢谢！');
 }
 
 date_default_timezone_set('PRC');
@@ -57,8 +57,8 @@ switch ($step) {
         exit();
 
     case '2':
-        if (phpversion() < '7.1.0' || phpversion() >= '8.0.0') {
-            die('本系统需要PHP为 7.1~7.4 版本，当前PHP版本为：' . phpversion());
+        if (phpversion() < '7.1.0' || phpversion() >= '8.3.0') {
+            die('本系统需要PHP为 7.1~8.2 版本，当前PHP版本为：' . phpversion());
         }
 
         $passOne = $passTwo = 'yes';
@@ -145,20 +145,20 @@ switch ($step) {
         exit();
 
     case '3':
-        $dbName = strtolower(trim($_POST['dbName']));
-        $_POST['dbport'] = $_POST['dbport'] ?: '3306';
-        if ($_GET['mysqldbpwd']) {
-            $dbHost = $_POST['dbHost'];
+        $dbName = strtolower(trim($_POST['dbName'] ?? ''));
+        $_POST['dbport'] = $_POST['dbport'] ?? '3306';
+        if ($_GET['mysqldbpwd'] ?? false) {
+            $dbHost = $_POST['dbHost'] ?? '';
             $conn = mysqli_init();
             mysqli_options($conn, MYSQLI_OPT_CONNECT_TIMEOUT, 2);
-            @mysqli_real_connect($conn, $dbHost, $_POST['dbUser'], $_POST['dbPwd'], NULL, $_POST['dbport']);
-            if ($error = mysqli_connect_errno($conn)) {
+            @mysqli_real_connect($conn, $dbHost, $_POST['dbUser'] ?? '', $_POST['dbPwd'] ?? '', NULL, $_POST['dbport'] ?? 3306);
+            if ($error = mysqli_connect_errno()) {
                 if ($error == 2002) {
                     die(json_encode(2002));//地址或端口错误
                 } else if ($error == 1045) {
                     die(json_encode(1045));//用户名或密码错误
                 } else {
-                    die(json_encode(-1));//链接失败
+                    die(json_encode(['code' => -1, 'error' => $error, 'msg' => mysqli_connect_error()]));//链接失败，显示具体错误
                 }
             } else {
                 if (mysqli_get_server_info($conn) < 5.1) {
@@ -177,7 +177,14 @@ switch ($step) {
                     mysqli_close($conn);
                     exit(json_encode(-3));//数据库存在
                 } else {
-                    if (!mysqli_select_db($conn, $dbName)) {
+                    // PHP 8 中 mysqli_select_db 在数据库不存在时会抛出异常
+                    $dbExists = false;
+                    try {
+                        $dbExists = @mysqli_select_db($conn, $dbName);
+                    } catch (Throwable $e) {
+                        $dbExists = false;
+                    }
+                    if (!$dbExists) {
                         //创建数据时同时设置编码
                         if (!mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `" . $dbName . "` DEFAULT CHARACTER SET utf8;")) {
                             exit(json_encode(-4));//无权限创建数据库
@@ -193,7 +200,7 @@ switch ($step) {
                 }
             }
         }
-        if ($_GET['redisdbpwd']) {
+        if ($_GET['redisdbpwd'] ?? false) {
 
             //redis数据库信息
             $rbhost = $_POST['rbhost'] ?? '127.0.0.1';
@@ -230,29 +237,29 @@ switch ($step) {
         exit();
 
     case '4':
-        if (intval($_GET['install'])) {
-            $n = intval($_GET['n']);
+        if (intval($_GET['install'] ?? 0)) {
+            $n = intval($_GET['n'] ?? 0);
             if ($n == 999999)
                 exit;
             $arr = array();
 
-            $dbHost = trim($_POST['dbhost']);
-            $_POST['dbport'] = $_POST['dbport'] ?: '3306';
-            $dbName = strtolower(trim($_POST['dbname']));
-            $dbUser = trim($_POST['dbuser']);
-            $dbPwd = trim($_POST['dbpw']);
-            $dbPrefix = empty($_POST['dbprefix']) ? 'eb_' : trim($_POST['dbprefix']);
+            $dbHost = trim($_POST['dbhost'] ?? '');
+            $_POST['dbport'] = $_POST['dbport'] ?? '3306';
+            $dbName = strtolower(trim($_POST['dbname'] ?? ''));
+            $dbUser = trim($_POST['dbuser'] ?? '');
+            $dbPwd = trim($_POST['dbpw'] ?? '');
+            $dbPrefix = empty($_POST['dbprefix'] ?? '') ? 'eb_' : trim($_POST['dbprefix']);
 
-            $username = trim($_POST['manager']);
-            $password = trim($_POST['manager_pwd']) ?: 'crmeb.com';
+            $username = trim($_POST['manager'] ?? '');
+            $password = trim($_POST['manager_pwd'] ?? '') ?: 'crmeb.com';
 
             if (!function_exists('mysqli_connect')) {
                 $arr['msg'] = "请安装 mysqli 扩展!";
                 exit(json_encode($arr));
             }
             $conn = @mysqli_connect($dbHost, $dbUser, $dbPwd, NULL, $_POST['dbport']);
-            if (mysqli_connect_errno($conn)) {
-                $arr['msg'] = "连接数据库失败!" . mysqli_connect_error($conn);
+            if (mysqli_connect_errno()) {
+                $arr['msg'] = "连接数据库失败!" . mysqli_connect_error();
                 exit(json_encode($arr));
             }
             mysqli_set_charset($conn, "utf8"); //,character_set_client=binary,sql_mode='';
@@ -262,7 +269,14 @@ switch ($step) {
                 exit(json_encode($arr));
             }
 
-            if (!mysqli_select_db($conn, $dbName)) {
+            // PHP 8 中 mysqli_select_db 在数据库不存在时会抛出异常
+            $dbExists = false;
+            try {
+                $dbExists = @mysqli_select_db($conn, $dbName);
+            } catch (Throwable $e) {
+                $dbExists = false;
+            }
+            if (!$dbExists) {
                 //创建数据时同时设置编码
                 if (!mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `" . $dbName . "` DEFAULT CHARACTER SET utf8;")) {
                     $arr['msg'] = '数据库 ' . $dbName . ' 不存在，也没权限创建新的数据库！';
@@ -273,7 +287,12 @@ switch ($step) {
                     $arr['msg'] = "成功创建数据库:{$dbName}";
                     exit(json_encode($arr));
                 }
-                mysqli_select_db($conn, $dbName);
+                try {
+                    @mysqli_select_db($conn, $dbName);
+                } catch (Throwable $e) {
+                    $arr['msg'] = '无法选择数据库：' . $e->getMessage();
+                    exit(json_encode($arr));
+                }
             }
 
             //读取数据文件
@@ -315,7 +334,7 @@ switch ($step) {
 
 
             // 清空测试数据
-            if (!$_POST['demo']) {
+            if (!($_POST['demo'] ?? false)) {
                 $result = mysqli_query($conn, "show tables");
                 $tables = mysqli_fetch_all($result);//参数MYSQL_ASSOC、MYSQLI_NUM、MYSQLI_BOTH规定产生数组类型
                 $bl_table = array('eb_system_admin'
@@ -371,7 +390,7 @@ switch ($step) {
             $strConfig = str_replace('#DB_CHARSET#', 'utf8', $strConfig);
 
             //缓存配置
-            $cachetype = $_POST['cache_type'] == 0 ? 'file' : 'redis';
+            $cachetype = ($_POST['cache_type'] ?? 0) == 0 ? 'file' : 'redis';
             $strConfig = str_replace('#CACHE_TYPE#', $cachetype, $strConfig);
             $strConfig = str_replace('#CACHE_PREFIX#', 'cache_' . $unique . ':', $strConfig);
             $strConfig = str_replace('#CACHE_TAG_PREFIX#', 'cache_tag_' . $unique . ':', $strConfig);
@@ -396,7 +415,7 @@ switch ($step) {
             $time = time();
             $ip = get_client_ip();
             $ip = empty($ip) ? "0.0.0.0" : $ip;
-            $password = password_hash($_POST['manager_pwd'], PASSWORD_BCRYPT);
+            $password = password_hash($_POST['manager_pwd'] ?? '', PASSWORD_BCRYPT);
             mysqli_query($conn, "truncate table {$dbPrefix}system_admin");
             $addadminsql = "INSERT INTO `{$dbPrefix}system_admin` (`id`, `account`, `head_pic`, `pwd`, `real_name`, `roles`, `last_ip`, `last_time`, `add_time`, `login_count`, `level`, `status`, `is_del`) VALUES
 (1, '" . $username . "', '/statics/system_images/admin_head_pic.png', '" . $password . "', 'admin', '1', '" . $ip . "',$time , $time, 0, 0, 1, 0)";

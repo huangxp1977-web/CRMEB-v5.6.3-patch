@@ -533,7 +533,7 @@ class MiniProgramService
      * @param string $type
      * @param string $refundAccount
      */
-    public static function miniRefund($orderNo, $totalFee, $refundFee = null, $opt)
+    public static function miniRefund($orderNo, $totalFee, $refundFee = null, $opt = [])
     {
         $totalFee = floatval($totalFee);
         $refundFee = floatval($refundFee);

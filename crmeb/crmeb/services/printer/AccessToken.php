@@ -89,7 +89,7 @@ class AccessToken extends HttpService
      */
     protected $feyUser;
 
-    public function __construct(array $config = [], string $name, string $configFile)
+    public function __construct(array $config = [], string $name = '', string $configFile = '')
     {
         $this->clientId = $config['clientId'] ?? null;
         $this->apiKey = $config['apiKey'] ?? null;

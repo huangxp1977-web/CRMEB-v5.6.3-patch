@@ -40,7 +40,7 @@ class LiveGoodsDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getList(array $where, string $field = '*', array $with = [], int $page, int $limit)
+    public function getList(array $where, string $field = '*', array $with = [], int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($field)->with($with)->page($page, $limit)->order('sort desc,add_time desc')->select()->toArray();
     }

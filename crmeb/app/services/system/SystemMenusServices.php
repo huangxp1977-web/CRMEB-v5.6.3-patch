@@ -259,7 +259,7 @@ class SystemMenusServices extends BaseServices
         foreach ($menus as &$item) {
             $item['checked'] = in_array($item['id'], $check);
         }
-        return $this->tidyMenuTier(false, $menus);
+        return $this->tidyMenuTier($menus, false);
     }
 
     /**
@@ -270,7 +270,7 @@ class SystemMenusServices extends BaseServices
      * @param array $navList
      * @return array
      */
-    public function tidyMenuTier(bool $adminFilter = false, $menusList, int $pid = 0, array $navList = []): array
+    public function tidyMenuTier($menusList, bool $adminFilter = false, int $pid = 0, array $navList = []): array
     {
         foreach ($menusList as $k => $menu) {
             $menu = $menu->getData();
@@ -278,7 +278,7 @@ class SystemMenusServices extends BaseServices
             unset($menu['menu_name']);
             if ($menu['pid'] == $pid) {
                 unset($menusList[$k]);
-                $menu['children'] = $this->tidyMenuTier($adminFilter, $menusList, $menu['id']);
+                $menu['children'] = $this->tidyMenuTier($menusList, $adminFilter, $menu['id']);
 //                if ($pid == 0 && !count($menu['children'])) continue;
                 if ($menu['children']) $menu['expand'] = true;
                 $navList[] = $menu;

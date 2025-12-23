@@ -105,7 +105,7 @@ class UserDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getAgentUserList(array $where, string $field = '*', int $page, int $limit)
+    public function getAgentUserList(array $where, string $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($field)->with([
             'extract' => function ($query) {
@@ -137,7 +137,7 @@ class UserDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getSairList(array $where, string $field = '*', int $page, int $limit)
+    public function getSairList(array $where, string $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($field)->with([
             'order' => function ($query) {
@@ -157,7 +157,7 @@ class UserDao extends BaseDao
      * @param int $page
      * @param int $limit
      */
-    public function getAgentRankList(array $time, string $field = '*', int $page, int $limit)
+    public function getAgentRankList(array $time, string $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->getModel()->alias('t0')
             ->field($field)

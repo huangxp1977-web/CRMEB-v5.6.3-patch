@@ -141,7 +141,7 @@ class Chuanglan extends BaseSms
      * @param string $sign
      * @return array|bool|mixed
      */
-    public function modify(string $sign = null, string $phone, string $code)
+    public function modify(string $sign = null, string $phone = '', string $code = '')
     {
         $param = [
             'sign' => $sign ?: $this->sign,

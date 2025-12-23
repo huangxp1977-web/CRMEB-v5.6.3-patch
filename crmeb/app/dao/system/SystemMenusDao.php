@@ -58,7 +58,8 @@ class SystemMenusDao extends BaseDao
             $field = ['id', 'menu_name', 'icon', 'pid', 'sort', 'menu_path', 'is_show', 'header', 'is_header', 'is_show_path', 'is_show'];
         }
         $where['no_model'] = sys_config('model_checkbox', ['seckill', 'bargain', 'combination']);
-        return $this->search($where)->field($field)->order('sort DESC,id DESC')->failException(false)->select();
+        // 确保只返回菜单类型 (auth_type=1)，排除按钮和接口
+        return $this->search($where)->where('auth_type', 1)->where('is_del', 0)->field($field)->order('sort DESC,id DESC')->failException(false)->select();
     }
 
     /**

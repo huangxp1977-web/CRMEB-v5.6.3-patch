@@ -15,6 +15,7 @@ namespace crmeb\utils;
 use crmeb\exceptions\AdminException;
 use crmeb\services\CacheService;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use think\facade\Env;
 
 /**
@@ -30,6 +31,12 @@ class JwtAuth
      * @var string
      */
     protected $token;
+
+    /**
+     * 加密算法
+     * @var string
+     */
+    protected $alg = 'HS256';
 
     /**
      * 获取token
@@ -51,7 +58,7 @@ class JwtAuth
             'exp' => $exp_time,
         ];
         $params['jti'] = compact('id', 'type');
-        $token = JWT::encode($params, Env::get('app.app_key', 'default'));
+        $token = JWT::encode($params, Env::get('app.app_key', 'default'), $this->alg);
 
         return compact('token', 'params');
     }
@@ -76,7 +83,7 @@ class JwtAuth
     {
         JWT::$leeway = 60;
 
-        JWT::decode($this->token, Env::get('app.app_key', 'default'), array('HS256'));
+        JWT::decode($this->token, new Key(Env::get('app.app_key', 'default'), $this->alg));
 
         $this->token = null;
     }

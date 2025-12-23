@@ -61,7 +61,7 @@ abstract class BaseSms extends BaseStorage
     /**修改签名
      * @return mixed
      */
-    abstract public function modify(string $sign = null, string $phone, string $code);
+    abstract public function modify(string $sign = null, string $phone = '', string $code = '');
 
     /**用户信息
      * @return mixed

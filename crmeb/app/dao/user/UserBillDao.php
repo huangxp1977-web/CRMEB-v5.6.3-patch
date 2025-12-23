@@ -62,7 +62,7 @@ class UserBillDao extends BaseDao
      * @param int $limit
      * @return array
      */
-    public function getBillList(array $where, string $field = '*', int $page, int $limit)
+    public function getBillList(array $where, string $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($field)->with([
             'user' => function ($query) {

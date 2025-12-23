@@ -146,7 +146,7 @@ class StoreCartServices extends BaseServices
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function checkProductStock(int $uid, int $cartNum, string $unique, int $type = 0, $productId, int $seckillId, int $bargainId, int $combinationId, int $advanceId)
+    public function checkProductStock(int $uid, int $cartNum, string $unique, int $type = 0, $productId = 0, int $seckillId = 0, int $bargainId = 0, int $combinationId = 0, int $advanceId = 0)
     {
         /** @var StoreProductAttrValueServices $attrValueServices */
         $attrValueServices = app()->make(StoreProductAttrValueServices::class);

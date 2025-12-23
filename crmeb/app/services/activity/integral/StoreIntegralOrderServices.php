@@ -157,7 +157,7 @@ class StoreIntegralOrderServices extends BaseServices
      * @param $productInfo
      * @throws \Exception
      */
-    public function createOrder($uid, $addressId, $mark = '', $userInfo, $num, $productInfo)
+    public function createOrder($uid, $addressId, $mark = '', $userInfo = [], $num = 1, $productInfo = [])
     {
         /** @var UserAddressServices $addressServices */
         $addressServices = app()->make(UserAddressServices::class);

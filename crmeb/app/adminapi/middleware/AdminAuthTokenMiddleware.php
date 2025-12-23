@@ -38,9 +38,9 @@ class AdminAuthTokenMiddleware implements MiddlewareInterface
      */
     public function handle(Request $request, \Closure $next)
     {
-        $token = trim(ltrim($request->header(Config::get('cookie.token_name', 'Authori-zation')), 'Bearer'));
+        $token = trim(ltrim($request->header(Config::get('cookie.token_name', 'Authori-zation')) ?? '', 'Bearer'));
         if (!$token) {
-            $token = trim(ltrim($request->get('token')));
+            $token = trim(ltrim($request->get('token') ?? ''));
         }
         /** @var AdminAuthServices $service */
         $service = app()->make(AdminAuthServices::class);

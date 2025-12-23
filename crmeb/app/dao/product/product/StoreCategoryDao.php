@@ -197,7 +197,7 @@ class StoreCategoryDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getALlByIndex(array $where, string $field = 'id,cate_name,pid,pic', $limit = 0)
+    public function getALlByIndex(array $where, string $field = 'id,cate_name,pid,pic', int $limit = 0)
     {
         $pid = $where['pid'] ?? -1;
         return $this->getModel()->where('is_show', 1)->field($field)

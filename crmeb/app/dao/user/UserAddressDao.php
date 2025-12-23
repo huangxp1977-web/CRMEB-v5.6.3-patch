@@ -42,7 +42,7 @@ class UserAddressDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getList(array $where, string $field = '*', int $page, int $limit): array
+    public function getList(array $where, string $field = '*', int $page = 0, int $limit = 0): array
     {
         return $this->search($where)->field($field)->page($page, $limit)->order('is_default DESC,id DESC')->select()->toArray();
     }

@@ -94,7 +94,7 @@ class Aliyun extends BaseSms
     {
     }
 
-    public function modify(string $sign = null, string $phone, string $code)
+    public function modify(string $sign = null, string $phone = '', string $code = '')
     {
     }
 

@@ -65,7 +65,7 @@ class UserExtractDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getExtractList(array $where, string $field = '*', int $page, int $limit)
+    public function getExtractList(array $where, string $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($field)->with([
             'user' => function ($query) {

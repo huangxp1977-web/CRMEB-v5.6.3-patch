@@ -70,7 +70,7 @@ class UserWechatUserDao extends BaseDao
         return parent::getModel()->alias($alias)->join($table . ' ' . $join_alias, $alias . '.uid = ' . $join_alias . '.uid', $join);
     }
 
-    public function getList(array $where, $field = '*', int $page, int $limit)
+    public function getList(array $where, $field = '*', int $page = 0, int $limit = 0)
     {
         return $this->getModel()->where($where)->field($field)->page($page, $limit)->select()->toArray();
     }
@@ -100,7 +100,7 @@ class UserWechatUserDao extends BaseDao
      * @param Model $model
      * @return array
      */
-    public function getListByModel(array $where, string $field = '', string $order = '', int $page, int $limit): array
+    public function getListByModel(array $where, string $field = '', string $order = '', int $page = 0, int $limit = 0): array
     {
         return $this->searchWhere($where)->field($field)->page($page, $limit)->group($this->alias . '.uid')->order(($order ? $order . ' ,' : '') . $this->alias . '.uid desc')->select()->toArray();
     }

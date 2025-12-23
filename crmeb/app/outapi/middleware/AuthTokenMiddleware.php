@@ -36,7 +36,7 @@ class AuthTokenMiddleware implements MiddlewareInterface
      */
     public function handle(Request $request, \Closure $next)
     {
-        $token = trim(ltrim($request->header(Config::get('cookie.token_name', 'Authori-zation')), 'Bearer'));
+        $token = trim(ltrim($request->header(Config::get('cookie.token_name', 'Authori-zation')) ?? '', 'Bearer'));
         /** @var OutAccountServices $services */
         $services = app()->make(OutAccountServices::class);
         $outInfo = $services->parseToken($token);

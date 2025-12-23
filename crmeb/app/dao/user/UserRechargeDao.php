@@ -39,7 +39,7 @@ class UserRechargeDao extends BaseDao
      * @param int $page
      * @param int $limit
      */
-    public function getList(array $where, string $filed = "*", int $page, int $limit)
+    public function getList(array $where, string $filed = "*", int $page = 0, int $limit = 0)
     {
         return $this->search($where)->field($filed)->with([
             'user' => function ($query) {

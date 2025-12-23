@@ -109,7 +109,7 @@ class LuckLotteryRecordServices extends BaseServices
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function insertPrizeRecord(int $uid, array $prize, array $userInfo = [], $channel_type)
+    public function insertPrizeRecord(int $uid, array $prize, array $userInfo = [], $channel_type = '')
     {
         if (!$userInfo) {
             /** @var UserServices $userServices */

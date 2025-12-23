@@ -306,7 +306,7 @@ class StorePinkServices extends BaseServices
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function orderPinkAfterNo($uid, $pid, $isRemove = false, $channel)
+    public function orderPinkAfterNo($uid, $pid, $isRemove = false, $channel = '')
     {
         $pink = $this->dao->getOne([['id|k_id', '=', $pid], ['uid', '=', $uid]], '*', ['getProduct']);
         if ($isRemove) {

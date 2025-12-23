@@ -105,13 +105,13 @@ if (!function_exists('sys_config')) {
         if (is_array($sysConfig)) {
             foreach ($sysConfig as &$item) {
                 if (!is_array($item)) {
-                    if (strpos($item, '/uploads/system/') !== false || strpos($item, '/statics/system_images/') !== false) $item = set_file_url($item);
+                    if (strpos($item ?? '', '/uploads/system/') !== false || strpos($item ?? '', '/statics/system_images/') !== false) $item = set_file_url($item);
                 }
             }
         } else {
-            if (strpos($sysConfig, '/uploads/system/') !== false || strpos($sysConfig, '/statics/system_images/') !== false) $sysConfig = set_file_url($sysConfig);
+            if (strpos($sysConfig ?? '', '/uploads/system/') !== false || strpos($sysConfig ?? '', '/statics/system_images/') !== false) $sysConfig = set_file_url($sysConfig);
         }
-        $config = is_array($sysConfig) ? $sysConfig : trim($sysConfig);
+        $config = is_array($sysConfig) ? $sysConfig : trim($sysConfig ?? '');
         if ($config === '' || $config === false) {
             return $default;
         } else {
@@ -627,11 +627,19 @@ if (!function_exists('filter_str')) {
     function filter_str($str)
     {
         $param_filter_type = sys_config('param_filter_type');
-        if ($param_filter_type != 0) {
-            $rules = preg_split('/\r\n|\r|\n/', base64_decode(sys_config('param_filter_data')));
+        $param_filter_data = sys_config('param_filter_data');
+        if ($param_filter_type != 0 && !empty($param_filter_data)) {
+            $rules = preg_split('/\r\n|\r|\n/', base64_decode($param_filter_data));
+            // 过滤掉空的规则
+            $rules = array_filter($rules, function($rule) {
+                return !empty(trim($rule));
+            });
+            if (empty($rules)) {
+                return $str;
+            }
             if ($param_filter_type == 1) {
                 foreach ($rules as $item) {
-                    if (preg_match($item, $str)) {
+                    if (!empty($item) && preg_match($item, $str)) {
                         throw new \Exception('接口请求失败：非法操作！');
                     }
                 }
