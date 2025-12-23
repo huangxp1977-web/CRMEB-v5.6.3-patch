@@ -286,11 +286,9 @@ class UpgradeServices extends BaseServices
             CacheService::set($token . '_pc_package', 2, 86400);
         }
 
-        CacheService::set($token . '_database_backup', 1, 86400);
-        UpgradeJob::dispatch('databaseBackup', [$token]);
-
-        CacheService::set($token . '_project_backup', 1, 86400);
-        UpgradeJob::dispatch('projectBackup', [$token]);
+        // 只下载升级包，跳过备份和覆盖操作
+        CacheService::set($token . '_database_backup', 2, 86400);
+        CacheService::set($token . '_project_backup', 2, 86400);
 
         CacheService::set('upgrade_token', $token, 86400);
         CacheService::set($token . '_upgrade_data', $data, 86400);
@@ -549,12 +547,13 @@ class UpgradeServices extends BaseServices
     }
 
     /**
-     * 升级
+     * 升级（已禁用覆盖功能，只下载升级包）
      * @return bool
-     * @throws \Exception
      */
     public function overwriteProject(): bool
     {
+        // 只下载升级包，不执行覆盖操作
+        return true;
         try {
             if (!$token = CacheService::get('upgrade_token')) {
                 throw new AdminException('请重新下载升级包');
@@ -713,13 +712,16 @@ class UpgradeServices extends BaseServices
     }
 
     /**
-     * 数据库升级
+     * 数据库升级（已禁用，防止意外损坏数据库）
      * @param string $token
      * @param string $serverPackageFilePath
      * @return bool
      */
     public function databaseUpgrade(string $token, string $serverPackageFilePath): bool
     {
+        // 禁用数据库升级功能
+        CacheService::set($token . '_database_upgrade', 2, 86400);
+        return true;
         $databaseFilePath = $serverPackageFilePath . DS . "upgrade" . DS . "database.php";
         if (!is_file($databaseFilePath)) {
             CacheService::set($token . '_database_upgrade', 2, 86400);
