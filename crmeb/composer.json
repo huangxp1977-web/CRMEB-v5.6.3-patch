@@ -44,7 +44,7 @@
         "qcloud_sts/qcloud-sts-sdk": "^3.0",
         "guzzlehttp/psr7": "^1.7",
         "guzzlehttp/guzzle": "^7.0",
-        "alipaysdk/easysdk": "2.0",
+        "alipaysdk/easysdk": "^2.2",
         "lizhichao/word": "^2.1",
         "alibabacloud/dysmsapi-20170525": "2.0.16",
         "fastknife/ajcaptcha": "^1.1",
