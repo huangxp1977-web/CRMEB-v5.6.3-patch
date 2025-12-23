@@ -10,6 +10,7 @@
 /crmeb/public/uploads
 /crmeb/runtime/timer.pid
 /crmeb/runtime/workerman.pid
+/crmeb/vendor/
 /docker-compose/mysql/data/
 /docker-compose/mysql/log/
 /docker-compose/nginx/log/
