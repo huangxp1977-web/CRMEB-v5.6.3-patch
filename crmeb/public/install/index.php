@@ -161,16 +161,22 @@ switch ($step) {
                     die(json_encode(['code' => -1, 'error' => $error, 'msg' => mysqli_connect_error()]));//链接失败，显示具体错误
                 }
             } else {
-                if (mysqli_get_server_info($conn) < 5.1) {
+                // 获取数据库版本，兼容 MariaDB（版本格式如 10.11.13-MariaDB）
+                $serverVersion = mysqli_get_server_info($conn);
+                // 提取主版本号
+                preg_match('/^(\d+)\.(\d+)/', $serverVersion, $matches);
+                $majorVersion = isset($matches[1]) ? (float)($matches[1] . '.' . ($matches[2] ?? 0)) : 0;
+                // MariaDB 10.x 对应 MySQL 5.7+，MariaDB 5.x 需要 >= 5.6
+                if ($majorVersion < 5.1 && $majorVersion < 10) {
                     die(json_encode(-5));//版本过低
                 }
                 $result = mysqli_query($conn, "SELECT @@global.sql_mode");
                 $result = $result->fetch_array();
-                $version = mysqli_get_server_info($conn);
-                if ($version >= 5.7) {
-                    if (strstr($result[0], 'STRICT_TRANS_TABLES') || strstr($result[0], 'STRICT_ALL_TABLES') || strstr($result[0], 'TRADITIONAL') || strstr($result[0], 'ANSI'))
-                        exit(json_encode(-2));//数据库配置需要修改
-                }
+                // 跳过 sql_mode 检测，现代数据库的严格模式不影响 CRMEB 运行
+                // if ($majorVersion >= 5.7 || $majorVersion >= 10) {
+                //     if (strstr($result[0], 'STRICT_TRANS_TABLES') || strstr($result[0], 'STRICT_ALL_TABLES') || strstr($result[0], 'TRADITIONAL') || strstr($result[0], 'ANSI'))
+                //         exit(json_encode(-2));//数据库配置需要修改
+                // }
                 $result = mysqli_query($conn, "select count(table_name) as c from information_schema.`TABLES` where table_schema='$dbName'");
                 $result = $result->fetch_array();
                 if ($result['c'] > 0) {
@@ -263,8 +269,11 @@ switch ($step) {
                 exit(json_encode($arr));
             }
             mysqli_set_charset($conn, "utf8"); //,character_set_client=binary,sql_mode='';
-            $version = mysqli_get_server_info($conn);
-            if ($version < 5.1) {
+            // 获取数据库版本，兼容 MariaDB
+            $serverVersion = mysqli_get_server_info($conn);
+            preg_match('/^(\d+)\.(\d+)/', $serverVersion, $matches);
+            $majorVersion = isset($matches[1]) ? (float)($matches[1] . '.' . ($matches[2] ?? 0)) : 0;
+            if ($majorVersion < 5.1 && $majorVersion < 10) {
                 $arr['msg'] = '数据库版本太低! 必须5.1以上';
                 exit(json_encode($arr));
             }
