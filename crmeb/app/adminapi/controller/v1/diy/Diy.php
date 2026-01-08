@@ -79,7 +79,7 @@ class Diy extends AuthController
                     }
                     if (isset($v['goodsList']['list']) && $v['goodsList']['list'] && $v['tabConfig']['tabVal'] == 1) {
                         $limitMax = config('database.page.limitMax', 50);
-                        if (count($v['goodsList']['list']) > $limitMax) {
+                        if (is_array($v['goodsList']['list']) && count($v['goodsList']['list']) > $limitMax) {
                             return app('json')->fail(400350);
                         }
                         $v['ids'] = array_column($v['goodsList']['list'], 'id');
@@ -281,7 +281,7 @@ class Diy extends AuthController
             if ($info['is_diy']) {
                 foreach ($info['value'] as &$item) {
                     if ($item['name'] === 'goodList') {
-                        if (isset($item['goodsList']['ids']) && count($item['goodsList']['ids'])) {
+                        if (isset($item['goodsList']['ids']) && is_array($item['goodsList']['ids']) && count($item['goodsList']['ids'])) {
                             $item['goodsList']['list'] = $services->getSearchList(['ids' => $item['goodsList']['ids']]);
                         } else {
                             $item['goodsList']['list'] = [];
@@ -307,7 +307,7 @@ class Diy extends AuthController
                 if (isset($info['value']['d_goodList']['goodsList'])) {
                     $info['value']['d_goodList']['goodsList']['list'] = [];
                 }
-                if (isset($info['value']['d_goodList']['goodsList']['ids']) && count($info['value']['d_goodList']['goodsList']['ids'])) {
+                if (isset($info['value']['d_goodList']['goodsList']['ids']) && is_array($info['value']['d_goodList']['goodsList']['ids']) && count($info['value']['d_goodList']['goodsList']['ids'])) {
                     $info['value']['d_goodList']['goodsList']['list'] = $services->getSearchList(['ids' => $info['value']['d_goodList']['goodsList']['ids']]);
                 }
             }
