@@ -1432,7 +1432,11 @@ class StoreProductServices extends BaseServices
         if (!$storeInfo) {
             throw new AdminException(400533);
         } else {
+            // PHP 8.2 兼容性修复：bind() 绑定的字段在 toArray() 转换时会丢失
+            // 先保存 description 字段值，再手动添加到数组
+            $description = $storeInfo->description ?? '';
             $storeInfo = $storeInfo->toArray();
+            $storeInfo['description'] = $description;
         }
         $siteUrl = sys_config('site_url');
         $storeInfo['image'] = set_file_url($storeInfo['image'], $siteUrl);

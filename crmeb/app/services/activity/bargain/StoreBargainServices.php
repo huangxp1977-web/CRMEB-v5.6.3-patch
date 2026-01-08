@@ -456,6 +456,8 @@ class StoreBargainServices extends BaseServices
         //获取砍价商品信息
         $bargain = $this->dao->getOne(['id' => $id], '*', ['description']);
         if (!$bargain) throw new ApiException(410306);
+        // PHP 8.2 兼容性修复：bind() 绑定的字段在转换时会丢失
+        $description = $bargain->description ?? '';
         if ($bargain['stop_time'] < time()) throw new ApiException(410299);
         list($productAttr, $productValue) = $storeProductAttrServices->getProductAttrDetail($id, $request->uid(), 0, 2, $bargain['product_id']);
         foreach ($productValue as $v) {
@@ -464,6 +466,7 @@ class StoreBargainServices extends BaseServices
         $bargain['time'] = time();
         $bargain = get_thumb_water($bargain);
         $bargain['small_image'] = $bargain['image'];
+        $bargain['description'] = $description;  // 手动添加 description 字段
         $data['bargain'] = $bargain;
 
         //写入查看和分享数据

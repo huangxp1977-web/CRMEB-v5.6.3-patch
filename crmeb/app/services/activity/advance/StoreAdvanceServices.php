@@ -253,7 +253,10 @@ class StoreAdvanceServices extends BaseServices
         if (!$storeInfo) {
             throw new ApiException(410294);
         } else {
+            // PHP 8.2 兼容性修复：bind() 绑定的字段在 toArray() 转换时会丢失
+            $description = $storeInfo->description ?? '';
             $storeInfo = $storeInfo->toArray();
+            $storeInfo['description'] = $description;
         }
         $siteUrl = sys_config('site_url');
         $storeInfo['image'] = set_file_url($storeInfo['image'], $siteUrl);

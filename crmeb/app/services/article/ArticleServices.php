@@ -163,7 +163,10 @@ class ArticleServices extends BaseServices
         if (!$info->save())
             throw new AdminException(400456);
         if ($info) {
+            // PHP 8.2 兼容性修复：bind() 绑定的字段在 toArray() 转换时会丢失
+            $content = $info->content ?? '';
             $info = $info->toArray();
+            $info['content'] = $content;
             $info['visit'] = (int)$info['visit'];
             $info['add_time'] = date('Y-m-d', $info['add_time']);
         }
