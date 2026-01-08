@@ -1180,10 +1180,12 @@ if (!function_exists('toIntArray')) {
      */
     function toIntArray($data, string $separator = ',')
     {
-        if (!is_string($data)) {
+        if (is_array($data)) {
             return array_unique(array_diff(array_map('intval', $data), [0]));
+        } elseif (is_string($data) && !empty($data)) {
+            return array_unique(array_diff(array_map('intval', explode($separator, $data)), [0]));
         } else {
-            return !empty($data) ? array_unique(array_diff(array_map('intval', explode($separator, $data)), [0])) : [];
+            return [];
         }
     }
 }

@@ -56,7 +56,7 @@ class StoreActivityServices extends BaseServices
         $seckillServices = app()->make(StoreSeckillServices::class);
         $seckill = $seckillServices->getList(['activity_id' => $id, 'is_del' => 0], 0, 0);
         $info['section_time'] = [date('Y-m-d', $info['start_day']), date('Y-m-d', $info['end_day'])];
-        $info['time_ids'] = array_map('intval', explode(',', $info['time_ids']));
+        $info['time_ids'] = is_string($info['time_ids']) ? array_map('intval', explode(',', $info['time_ids'])) : [];
         $productList = [];
         if ($seckill) {
             /** @var StoreProductServices $productServices */

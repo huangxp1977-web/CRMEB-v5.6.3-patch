@@ -96,6 +96,10 @@ class StoreProductController
         } else {
             $where['store_label_id'] = [];
         }
+        // 当 coupon_category_id 为 0 或空时，删除该参数避免触发无效查询
+        if (empty($where['coupon_category_id'])) {
+            unset($where['coupon_category_id']);
+        }
         $type = 'big';
         $field = ['image', 'recommend_image'];
         $list = $this->services->getGoodsList($where, (int)$request->uid());

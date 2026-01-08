@@ -322,7 +322,7 @@ class StoreSeckillServices extends BaseServices
             $storeDescriptionServices = app()->make(StoreDescriptionServices::class);
             $info['description'] = $storeDescriptionServices->getDescription(['product_id' => $id, 'type' => 1]);
             $info['attrs'] = $this->attrList($id, $info['product_id']);
-            $info['time_id'] = strpos($info['time_id'], ',') === false ? [(int)$info['time_id']] : array_map('intval', explode(',', $info['time_id']));
+            $info['time_id'] = strpos((string)$info['time_id'], ',') === false ? [(int)$info['time_id']] : array_map('intval', explode(',', (string)$info['time_id']));
         }
         return $info;
     }

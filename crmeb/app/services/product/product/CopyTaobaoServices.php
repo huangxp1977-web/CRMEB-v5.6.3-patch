@@ -84,7 +84,7 @@ class CopyTaobaoServices extends BaseServices
             $storeCatecoryService = app()->make(StoreCategoryServices::class);
             $data = [];
             $productInfo = $result['data'];
-            if (count($productInfo['slider_image'])) {
+            if (isset($productInfo['slider_image']) && is_array($productInfo['slider_image']) && count($productInfo['slider_image'])) {
                 $productInfo['slider_image'] = array_map(function ($item) {
                     $item = str_replace('\\', '/', $item);
                     return $item;

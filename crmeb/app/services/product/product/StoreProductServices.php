@@ -1187,7 +1187,7 @@ class StoreProductServices extends BaseServices
     {
         $where['is_show'] = 1;
         $where['is_del'] = 0;
-        $where['star'] = 1;
+        // 注意：star 是关联模型（商品评价），不是数据库字段，不能作为查询条件
         [$page, $limit] = $this->getPageValue();
         $where['vip_user'] = $uid ? app()->make(UserServices::class)->value(['uid' => $uid], 'is_money_level') : 0;
         $list = $this->dao->getSearchList($where, $page, $limit, ['id,store_name,cate_id,image,IFNULL(sales, 0) + IFNULL(ficti, 0) as sales,price,stock,activity,ot_price,spec_type,recommend_image,unit_name,is_vip,vip_price,is_virtual,presale,custom_form,virtual_type,min_qty,label_list']);
@@ -1195,13 +1195,19 @@ class StoreProductServices extends BaseServices
         $memberCardService = app()->make(MemberCardServices::class);
         $vipStatus = $memberCardService->isOpenMemberCard('vip_price');
 
+        // 如果列表为空，直接返回空数组
+        if (empty($list) || !is_array($list)) {
+            return [];
+        }
+
         // 提取所有 label_list 并过滤空值
         $labelLists = array_map(function ($item) {
-            return $item['label_list'];
+            return $item['label_list'] ?? '';
         }, $list);
 
         // 将 label_list 转换为数组，过滤空值，并去重
         $uniqueLabels = array_unique(array_reduce($labelLists, function ($carry, $labels) {
+            if (empty($labels)) return $carry;
             // 将 label_list 按逗号分割成数组
             $labelsArray = explode(',', $labels);
             // 过滤掉空值
@@ -1220,17 +1226,17 @@ class StoreProductServices extends BaseServices
                 $item['vip_price'] = 0;
             }
             $item['cart_button'] = $item['is_virtual'] || $item['virtual_type'] == 3 || $item['presale'] || json_decode($item['custom_form'], true) ? 0 : 1;
-            if (count($item['star'])) {
+            if (isset($item['star']) && is_array($item['star']) && count($item['star'])) {
                 $item['star'] = bcdiv((string)array_sum(array_column($item['star'], 'product_score')), (string)count($item['star']), 1);
             } else {
                 $item['star'] = '5.0';
             }
-            $item['label_list'] = $item['label_list'] != '' ? array_map(function ($labelId) use ($labelList) {
+            $item['label_list'] = (is_string($item['label_list']) && $item['label_list'] != '') ? array_map(function ($labelId) use ($labelList) {
                 return $labelList[$labelId] ?? [];
             }, explode(',', $item['label_list'])) : [];
         }
         $list = $this->getActivityList($list);
-        $list = $this->getProduceOtherList($list, $uid, !!$where['type']);
+        $list = $this->getProduceOtherList($list, $uid, !!(isset($where['type']) ? $where['type'] : 0));
         return $list;
     }
 
