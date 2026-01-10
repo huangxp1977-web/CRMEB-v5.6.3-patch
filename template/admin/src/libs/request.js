@@ -15,7 +15,7 @@ import Setting from '@/setting';
 import router from '@/router';
 const service = axios.create({
   baseURL: Setting.apiBaseURL,
-  timeout: 10000, // 请求超时时间
+  timeout: 60000, // 请求超时时间
 });
 
 axios.defaults.withCredentials = true; // 携带cookie
