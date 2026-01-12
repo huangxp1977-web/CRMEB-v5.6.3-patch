@@ -129,10 +129,18 @@ class PublicController
             $workermanOutput = $timerOutput = $queueOutput = [];
             exec("ps aux | grep 'php think workerman' | grep -v grep", $workermanOutput);
             exec("ps aux | grep 'php think timer' | grep -v grep", $timerOutput);
+            $timerStatus = count($timerOutput) > 0;
+            // 兼容 URL 触发模式：如果进程没找到，检查 .timer 文件的更新时间
+            if (!$timerStatus && file_exists(root_path('runtime') . '.timer')) {
+                $timerTime = (int)file_get_contents(root_path('runtime') . '.timer');
+                if (time() - $timerTime < 180) { // 3 分钟内触发过即视为正常
+                    $timerStatus = true;
+                }
+            }
             exec("ps aux | grep 'php think queue' | grep -v grep", $queueOutput);
             $info['process'] = [
                 ['name' => '长链接', 'require' => '开启', 'value' => count($workermanOutput) > 0],
-                ['name' => '定时任务', 'require' => '开启', 'value' => count($timerOutput) > 0],
+                ['name' => '定时任务', 'require' => '开启', 'value' => $timerStatus],
                 ['name' => '消息队列', 'require' => '开启', 'value' => count($queueOutput) > 0],
             ];
         } else {

@@ -40,6 +40,16 @@
             <span>{{ taskTrip(scope.row) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="上次执行时间" min-width="150">
+          <template slot-scope="scope">
+            <span>{{ scope.row.last_execution_time }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="下次执行时间" min-width="150">
+          <template slot-scope="scope">
+            <span>{{ scope.row.next_execution_time }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="是否开启" min-width="130">
           <template slot-scope="scope">
             <el-switch
