@@ -1180,7 +1180,11 @@ if (!function_exists('toIntArray')) {
      */
     function toIntArray($data, string $separator = ',')
     {
-        if (is_array($data)) {
+        // 兼容单个整数输入
+        if (is_numeric($data) && !is_string($data)) {
+            $intVal = (int)$data;
+            return $intVal > 0 ? [$intVal] : [];
+        } elseif (is_array($data)) {
             return array_unique(array_diff(array_map('intval', $data), [0]));
         } elseif (is_string($data) && !empty($data)) {
             return array_unique(array_diff(array_map('intval', explode($separator, $data)), [0]));

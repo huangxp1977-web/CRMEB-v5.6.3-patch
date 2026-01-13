@@ -45,6 +45,9 @@ class DiyPro extends AuthController
             ['type', 2],
         ]);
         $value = is_string($data['value']) ? json_decode($data['value'], true) : $data['value'];
+        if (!is_array($value)) {
+            $value = [];
+        }
         foreach ($value as &$item) {
             if ($item['name'] === 'goodList') {
                 if (isset($item['selectConfig']['list'])) {

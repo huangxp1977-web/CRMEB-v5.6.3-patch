@@ -610,11 +610,11 @@ class StoreProductServices extends BaseServices
             if ($data['limit_num'] <= 0) throw new AdminException(400571);
         }
         $data['is_virtual'] = in_array($data['virtual_type'], [1, 2]) > 0 ? 1 : 0;
-        $data['logistics'] = implode(',', $data['logistics']);
-        $data['custom_form'] = json_encode($data['custom_form']);
-        $data['params_list'] = json_encode($data['params_list']);
-        $data['label_list'] = implode(',', $data['label_list']);
-        $data['protection_list'] = implode(',', $data['protection_list']);
+        $data['logistics'] = implode(',', $data['logistics'] ?? []);
+        $data['custom_form'] = json_encode($data['custom_form'] ?? []);
+        $data['params_list'] = json_encode($data['params_list'] ?? []);
+        $data['label_list'] = implode(',', $data['label_list'] ?? []);
+        $data['protection_list'] = implode(',', $data['protection_list'] ?? []);
         if ($data['freight'] == 2) {
             $data['temp_id'] = 0;
         } elseif ($data['freight'] == 3) {
@@ -652,15 +652,15 @@ class StoreProductServices extends BaseServices
             }
         }
 
-        $data['activity'] = implode(',', $data['activity']);
+        $data['activity'] = implode(',', $data['activity'] ?? []);
         $data['price'] = min(array_column($detail, 'price'));
         $data['ot_price'] = min(array_column($detail, 'ot_price'));
         $data['cost'] = min(array_column($detail, 'cost'));
         if (!$data['cost']) {
             $data['cost'] = 0;
         }
-        $data['cate_id'] = implode(',', $data['cate_id']);
-        $data['label_id'] = implode(',', $data['label_id']);
+        $data['cate_id'] = implode(',', $data['cate_id'] ?? []);
+        $data['label_id'] = implode(',', $data['label_id'] ?? []);
         $slider_image = $data['slider_image'];
         $data['image'] = $data['slider_image'][0];
         $data['slider_image'] = json_encode($data['slider_image']);
