@@ -261,7 +261,7 @@ class Local extends BaseUpload
                         //防止重复生成
                         if (!file_exists('.' . $savePath)) {
                             $Image = Image::open(app()->getRootPath() . 'public' . $filePath);
-                            $Image->thumb($config[$width], $config[$height])->save(root_path() . 'public' . $savePath);
+                            $Image->thumb((int)$config[$width], (int)$config[$height])->save(root_path() . 'public' . $savePath);
                         }
                         $key = 'filePath' . ucfirst($v);
                         $data[$v] = $this->fileInfo->$key = $savePath;

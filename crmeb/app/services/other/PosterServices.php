@@ -161,12 +161,12 @@ class PosterServices
                 $res = $function($val['url']);
                 $resWidth = $info[0];
                 $resHeight = $info[1];
-                $canvas = imagecreatetruecolor($val['width'], $val['height']);
+                $canvas = imagecreatetruecolor((int)$val['width'], (int)$val['height']);
                 imagefill($canvas, 0, 0, $color);
-                imagecopyresampled($canvas, $res, 0, 0, 0, 0, $val['width'], $val['height'], $resWidth, $resHeight);
+                imagecopyresampled($canvas, $res, 0, 0, 0, 0, (int)$val['width'], (int)$val['height'], (int)$resWidth, (int)$resHeight);
                 $val['left'] = $val['left'] < 0 ? $backgroundWidth - abs($val['left']) - $val['width'] : $val['left'];
                 $val['top'] = $val['top'] < 0 ? $backgroundHeight - abs($val['top']) - $val['height'] : $val['top'];
-                imagecopymerge($imageRes, $canvas, $val['left'], $val['top'], $val['right'], $val['bottom'], $val['width'], $val['height'], $val['opacity']);//左，上，右，下，宽度，高度，透明度
+                imagecopymerge($imageRes, $canvas, (int)$val['left'], (int)$val['top'], (int)$val['right'], (int)$val['bottom'], (int)$val['width'], (int)$val['height'], (int)$val['opacity']);//左，上，右，下，宽度，高度，透明度
             }
         }
         if (isset($config['text']) && !empty($config['text'])) {
@@ -176,7 +176,7 @@ class PosterServices
                 $fontColor = imagecolorallocate($imageRes, $R, $G, $B);
                 $val['left'] = $val['left'] < 0 ? $backgroundWidth - abs($val['left']) : $val['left'];
                 $val['top'] = $val['top'] < 0 ? $backgroundHeight - abs($val['top']) : $val['top'];
-                imagettftext($imageRes, $val['fontSize'], $val['angle'], $val['left'], $val['top'], $fontColor, $val['fontPath'], $val['text']);
+                imagettftext($imageRes, $val['fontSize'], $val['angle'], (int)$val['left'], (int)$val['top'], $fontColor, $val['fontPath'], $val['text']);
             }
         }
         ob_start();

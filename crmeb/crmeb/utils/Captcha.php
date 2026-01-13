@@ -152,11 +152,11 @@ class Captcha
         }
 
         // 图片宽(px)
-        $this->imageW || $this->imageW = $this->length * $this->fontSize * 1.5 + $this->length * $this->fontSize / 2;
+        $this->imageW || $this->imageW = (int)($this->length * $this->fontSize * 1.5 + $this->length * $this->fontSize / 2);
         // 图片高(px)
-        $this->imageH || $this->imageH = $this->fontSize * 2.5;
+        $this->imageH || $this->imageH = (int)($this->fontSize * 2.5);
         // 建立一幅 $this->imageW x $this->imageH 的图像
-        $this->im = imagecreate($this->imageW, $this->imageH);
+        $this->im = imagecreate((int)$this->imageW, (int)$this->imageH);
         // 设置背景
         imagecolorallocate($this->im, $this->bg[0], $this->bg[1], $this->bg[2]);
 
@@ -198,8 +198,8 @@ class Captcha
 
         foreach ($text as $index => $char) {
 
-            $x = $this->fontSize * ($index + 1) * mt_rand(1.2, 1.6) * ($this->math ? 1 : 1.5);
-            $y = $this->fontSize + mt_rand(10, 20);
+            $x = (int)($this->fontSize * ($index + 1) * mt_rand(1.2, 1.6) * ($this->math ? 1 : 1.5));
+            $y = (int)($this->fontSize + mt_rand(10, 20));
             $angle = $this->math ? 0 : mt_rand(-40, 40);
 
             imagettftext($this->im, $this->fontSize, $angle, $x, $y, $this->color, $fontttf, $char);
@@ -241,10 +241,10 @@ class Captcha
 
         for ($px = $px1; $px <= $px2; $px = $px + 1) {
             if (0 != $w) {
-                $py = $A * sin($w * $px + $f) + $b + $this->imageH / 2; // y = Asin(ωx+φ) + b
+                $py = (int)($A * sin($w * $px + $f) + $b + $this->imageH / 2); // y = Asin(ωx+φ) + b
                 $i = (int)($this->fontSize / 5);
                 while ($i > 0) {
-                    imagesetpixel($this->im, $px + $i, $py + $i, $this->color); // 这里(while)循环画像素点比imagettftext和imagestring用字体大小一次画出（不用这while循环）性能要好很多
+                    imagesetpixel($this->im, (int)($px + $i), (int)($py + $i), $this->color); // 这里(while)循环画像素点比imagettftext和imagestring用字体大小一次画出（不用这while循环）性能要好很多
                     $i--;
                 }
             }
@@ -261,10 +261,10 @@ class Captcha
 
         for ($px = $px1; $px <= $px2; $px = $px + 1) {
             if (0 != $w) {
-                $py = $A * sin($w * $px + $f) + $b + $this->imageH / 2; // y = Asin(ωx+φ) + b
+                $py = (int)($A * sin($w * $px + $f) + $b + $this->imageH / 2); // y = Asin(ωx+φ) + b
                 $i = (int)($this->fontSize / 5);
                 while ($i > 0) {
-                    imagesetpixel($this->im, $px + $i, $py + $i, $this->color);
+                    imagesetpixel($this->im, (int)($px + $i), (int)($py + $i), $this->color);
                     $i--;
                 }
             }
@@ -283,7 +283,7 @@ class Captcha
             $noiseColor = imagecolorallocate($this->im, mt_rand(150, 225), mt_rand(150, 225), mt_rand(150, 225));
             for ($j = 0; $j < 5; $j++) {
                 // 绘杂点
-                imagestring($this->im, 5, mt_rand(-10, $this->imageW), mt_rand(-10, $this->imageH), $codeSet[mt_rand(0, 29)], $noiseColor);
+                imagestring($this->im, 5, (int)mt_rand(-10, $this->imageW), (int)mt_rand(-10, $this->imageH), $codeSet[mt_rand(0, 29)], $noiseColor);
             }
         }
     }
@@ -310,7 +310,7 @@ class Captcha
         list($width, $height) = @getimagesize($gb);
         // Resample
         $bgImage = @imagecreatefromjpeg($gb);
-        @imagecopyresampled($this->im, $bgImage, 0, 0, 0, 0, $this->imageW, $this->imageH, $width, $height);
+        @imagecopyresampled($this->im, $bgImage, 0, 0, 0, 0, (int)$this->imageW, (int)$this->imageH, (int)$width, (int)$height);
         @imagedestroy($bgImage);
     }
 }

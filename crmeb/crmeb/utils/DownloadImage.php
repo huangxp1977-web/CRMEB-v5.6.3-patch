@@ -108,7 +108,7 @@ class DownloadImage
             $imageInfo = $upload->getDownloadInfo();
             $path = $imageInfo['dir'];
             if ($this->thumb) {
-                Image::open(root_path() . 'public' . $path)->thumb($this->thumbWidth, $this->thumHeight)->save(root_path() . 'public' . $path);
+                Image::open(root_path() . 'public' . $path)->thumb((int)$this->thumbWidth, (int)$this->thumHeight)->save(root_path() . 'public' . $path);
                 $this->thumb = false;
             }
         } else {

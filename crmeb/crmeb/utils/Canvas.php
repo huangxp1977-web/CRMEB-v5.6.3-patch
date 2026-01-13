@@ -203,7 +203,7 @@ class Canvas
      */
     public function createTrueColor(int $w = 0, int $h = 0)
     {
-        return imagecreatetruecolor($w ?: $this->backgroundWidth, $h ?: $this->backgroundHeight);
+        return imagecreatetruecolor((int)($w ?: $this->backgroundWidth), (int)($h ?: $this->backgroundHeight));
     }
 
 
@@ -229,9 +229,9 @@ class Canvas
                     if ($mer && $res) {
                         $scrW = $res[0] ?? 0;
                         $scrH = $res[1] ?? 0;
-                        $imageWidth = $item['imageWidth'] ?: $scrW;
-                        $imageHeight = $item['imageHeight'] ?: $scrH;
-                        imagecopyresampled($image, $mer, $item['imageLeft'], $item['imageTop'], $item['imageRight'], $item['imageBottom'], $imageWidth, $imageHeight, $scrW, $scrH);
+                        $imageWidth = (int)($item['imageWidth'] ?: $scrW);
+                        $imageHeight = (int)($item['imageHeight'] ?: $scrH);
+                        imagecopyresampled($image, $mer, (int)$item['imageLeft'], (int)$item['imageTop'], (int)$item['imageRight'], (int)$item['imageBottom'], $imageWidth, $imageHeight, (int)$scrW, (int)$scrH);
                         unset($scrW, $scrH, $imageWidth, $imageHeight, $res, $mer);
                     }
 
@@ -249,7 +249,7 @@ class Canvas
                 $fontColor = imagecolorallocate($image, $r, $g, $b);
                 $val['fontLeft'] = $val['fontLeft'] < 0 ? $this->backgroundWidth - abs($val['fontLeft']) : $val['fontLeft'];
                 $val['fontTop'] = $val['fontTop'] < 0 ? $this->backgroundHeight - abs($val['fontTop']) : $val['fontTop'];
-                imagettftext($image, $val['fontSize'], $val['fontAngle'], $val['fontLeft'], $val['fontTop'], $fontColor, $val['fontPath'], $val['fontText']);
+                imagettftext($image, $val['fontSize'], $val['fontAngle'], (int)$val['fontLeft'], (int)$val['fontTop'], $fontColor, $val['fontPath'], $val['fontText']);
                 unset($r, $g, $b, $fontColor);
             }
             if (is_null($this->fileName)) {
