@@ -29,7 +29,7 @@ class AdminEditorTokenMiddleware implements MiddlewareInterface
 {
     public function handle(Request $request, \Closure $next)
     {
-        $token = CacheService::get(trim($request->get('fileToken')));
+        $token = CacheService::get(trim((string)$request->get('fileToken')));
 
         /** @var SystemFileServices $service */
         $service = app()->make(SystemFileServices::class);

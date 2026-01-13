@@ -50847,7 +50847,7 @@ CREATE TABLE IF NOT EXISTS `eb_wechat_message` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户行为记录id',
   `openid` varchar(32) NOT NULL DEFAULT '' COMMENT '用户openid',
   `type` varchar(32) NOT NULL DEFAULT '' COMMENT '操作类型',
-  `result` varchar(512) NOT NULL DEFAULT '' COMMENT '操作详细记录',
+  `result` text NOT NULL DEFAULT '' COMMENT '操作详细记录',
   `add_time` int(10) UNSIGNED NOT NULL DEFAULT '0' COMMENT '操作时间',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `openid` (`openid`) USING BTREE,

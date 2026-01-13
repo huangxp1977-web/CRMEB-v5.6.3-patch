@@ -97,7 +97,9 @@ class WechatServices extends BaseServices
      */
     public function config($url)
     {
-        return json_decode(WechatAuthService::jsSdk($url), true);
+        $result = WechatAuthService::jsSdk($url);
+        // EasyWeChat 6.x 返回数组，4.x 返回 JSON 字符串
+        return is_array($result) ? $result : json_decode($result, true);
     }
 
     /**

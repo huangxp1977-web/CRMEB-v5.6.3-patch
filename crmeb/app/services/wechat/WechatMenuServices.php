@@ -35,13 +35,64 @@ class WechatMenuServices extends BaseServices
     }
 
     /**
-     * 获取微信菜单
+     * 获取微信菜单 - 直接从公众号获取，不存本地
      * @return array|mixed
      */
     public function getWechatMenu()
     {
-        $menus = $this->dao->value(['key' => 'wechat_menus'], 'result');
-        return $menus ? json_decode($menus, true) : [];
+        try {
+            // 直接从微信公众号获取当前菜单
+            $result = WechatService::menuService()->current();
+            
+            if (!isset($result['selfmenu_info']['button'])) {
+                return [];
+            }
+            
+            $wechatButtons = $result['selfmenu_info']['button'];
+            return $this->convertWechatMenuToLocal($wechatButtons);
+        } catch (\Exception $e) {
+            // 如果获取失败，返回空数组或本地缓存
+            $menus = $this->dao->value(['key' => 'wechat_menus'], 'result');
+            return $menus ? json_decode($menus, true) : [];
+        }
+    }
+
+    /**
+     * 转换微信菜单格式为商城格式
+     * @param array $wechatButtons
+     * @return array
+     */
+    protected function convertWechatMenuToLocal(array $wechatButtons): array
+    {
+        $menus = [];
+        foreach ($wechatButtons as $button) {
+            $menu = [
+                'name' => $button['name'] ?? '',
+                'type' => $button['type'] ?? 'click',
+                'key' => $button['key'] ?? '',
+                'url' => $button['url'] ?? '',
+                'appid' => $button['appid'] ?? '',
+                'pagepath' => $button['pagepath'] ?? '',
+            ];
+            
+            // 处理子菜单
+            if (isset($button['sub_button']['list']) && !empty($button['sub_button']['list'])) {
+                $menu['sub_button'] = [];
+                foreach ($button['sub_button']['list'] as $subButton) {
+                    $menu['sub_button'][] = [
+                        'name' => $subButton['name'] ?? '',
+                        'type' => $subButton['type'] ?? 'click',
+                        'key' => $subButton['key'] ?? '',
+                        'url' => $subButton['url'] ?? '',
+                        'appid' => $subButton['appid'] ?? '',
+                        'pagepath' => $subButton['pagepath'] ?? '',
+                    ];
+                }
+            }
+            
+            $menus[] = $menu;
+        }
+        return $menus;
     }
 
     /**
@@ -52,12 +103,8 @@ class WechatMenuServices extends BaseServices
     public function saveMenu(array $buttons)
     {
         try {
-            WechatService::menuService()->add($buttons);
-            if ($this->dao->count(['key' => 'wechat_menus'])) {
-                $this->dao->update('wechat_menus', ['result' => json_encode($buttons), 'add_time' => time()], 'key');
-            } else {
-                $this->dao->save(['key' => 'wechat_menus', 'result' => json_encode($buttons), 'add_time' => time()]);
-            }
+            // 直接推送到微信服务器，不保存本地副本
+            WechatService::menuService()->create($buttons);
             return true;
         } catch (\Exception $e) {
             if (strstr($e->getMessage(), 'Request AccessToken fail. response')) {
@@ -75,3 +122,4 @@ class WechatMenuServices extends BaseServices
         }
     }
 }
+

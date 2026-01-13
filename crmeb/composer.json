@@ -24,7 +24,7 @@
         "topthink/framework": "^6.1.5",
         "topthink/think-view": "^1.0.0",
         "symfony/var-dumper": "^6.0",
-        "overtrue/wechat": "^5.0",
+        "w7corp/easywechat": "^6.7",
         "topthink/think-captcha": "^3.0",
         "topthink/think-image": "^1.0",
         "xaboy/form-builder": "2.1.0",

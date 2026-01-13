@@ -140,13 +140,13 @@ class WechatService
         $server = $wechat->server;
         self::hook($server);
         $response = $server->serve();
-        return response($response->getContent());
+        return response($response->getBody()->getContents());
     }
 
     /**
      * 监听行为(微信)
-     * @param Guard $server
-     * @throws \EasyWeChat\Core\Exceptions\InvalidArgumentException
+     * EasyWeChat 6.x 使用 with() 方法代替 setMessageHandler()
+     * @param mixed $server
      */
     private static function hook($server)
     {
@@ -154,13 +154,25 @@ class WechatService
         $messageService = app()->make(MessageServices::class);
         /** @var WechatReplyServices $wechatReplyService */
         $wechatReplyService = app()->make(WechatReplyServices::class);
-        $server->setMessageHandler(function ($message) use ($messageService, $wechatReplyService) {
+        
+        // EasyWeChat 6.x 使用 with() 方法注册消息处理器
+        $server->with(function ($message) use ($messageService, $wechatReplyService) {
             /** @var WechatMessageServices $wechatMessage */
             $wechatMessage = app()->make(WechatMessageServices::class);
+            
+            // 将 Message 对象转换为数组访问方式兼容
+            $msgType = $message['MsgType'] ?? '';
+            $event = $message['Event'] ?? '';
+            $eventKey = $message['EventKey'] ?? '';
+            $content = $message['Content'] ?? '';
+            $fromUserName = $message['FromUserName'] ?? '';
+            
             $wechatMessage->wechatMessageBefore($message);
-            switch ($message->MsgType) {
+            $response = null;
+            
+            switch ($msgType) {
                 case 'event':
-                    switch (strtolower($message->Event)) {
+                    switch (strtolower($event)) {
                         case 'subscribe':
                             $response = $messageService->wechatEventSubscribe($message);
                             break;
@@ -174,7 +186,7 @@ class WechatService
                             $response = $messageService->wechatEventLocation($message);
                             break;
                         case 'click':
-                            $response = $wechatReplyService->reply($message->EventKey);
+                            $response = $wechatReplyService->reply($eventKey);
                             break;
                         case 'view':
                             $response = $messageService->wechatEventView($message);
@@ -182,7 +194,7 @@ class WechatService
                     }
                     break;
                 case 'text':
-                    $response = $wechatReplyService->reply($message->Content, $message->FromUserName);
+                    $response = $wechatReplyService->reply($content, $fromUserName);
                     break;
                 case 'image':
                     $response = $messageService->wechatMessageImage($message);
@@ -205,7 +217,7 @@ class WechatService
                     break;
             }
 
-            return $response ?? false;
+            return $response ?? '';
         });
     }
 
@@ -239,6 +251,17 @@ class WechatService
     {
         return self::application()->material_temporary;
     }
+
+    /**
+     * 已发布图文接口 (FreePublish)
+     * @return \FreePublishServiceWrapper
+     */
+    public static function freepublishService()
+    {
+        return self::application()->freepublish;
+    }
+
+
 
     /**
      * 用户接口
