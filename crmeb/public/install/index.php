@@ -17,11 +17,8 @@ if (file_exists('../install.lock')) {
 
 @set_time_limit(1000);
 
-if ('7.1.0' > phpversion()) {
-    exit('您的php版本过低，不能安装本软件，兼容php版本7.1~7.4，谢谢！');
-}
-if (phpversion() >= '8.3.0') {
-    exit('您的php版本太高，不能安装本软件，兼容php版本7.1~8.2，谢谢！');
+if (phpversion() < '8.1.0') {
+    exit('您的php版本太低，不能安装本软件，请安装php版本8.1~8.5，谢谢！');
 }
 
 date_default_timezone_set('PRC');
