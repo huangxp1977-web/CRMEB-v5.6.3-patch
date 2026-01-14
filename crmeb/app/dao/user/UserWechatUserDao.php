@@ -229,6 +229,12 @@ class UserWechatUserDao extends BaseDao
         if ($fieldKey && $nickname && in_array($fieldKey, $this->withField)) {
             switch ($fieldKey) {
                 case "nickname":
+                    // 同时搜索通用表和微信表的昵称
+                    $model = $model->where(function ($query) use ($userAlias, $wechatUserAlias, $nickname) {
+                        $query->where($userAlias . 'nickname', 'like', "%" . trim($nickname) . "%")
+                              ->whereOr($wechatUserAlias . 'nickname', 'like', "%" . trim($nickname) . "%");
+                    });
+                    break;
                 case "phone":
                     $model = $model->where($userAlias . trim($fieldKey), 'like', "%" . trim($nickname) . "%");
                     break;
@@ -237,7 +243,13 @@ class UserWechatUserDao extends BaseDao
                     break;
             }
         } else if (!$fieldKey && $nickname) {
-            $model = $model->where($userAlias . 'nickname|' . $userAlias . 'uid|' . $userAlias . 'phone', 'LIKE', "%$where[nickname]%");
+            // 全字段搜索时，也包含微信表昵称
+            $model = $model->where(function ($query) use ($userAlias, $wechatUserAlias, $nickname) {
+                $query->where($userAlias . 'nickname', 'LIKE', "%{$nickname}%")
+                      ->whereOr($userAlias . 'uid', 'LIKE', "%{$nickname}%")
+                      ->whereOr($userAlias . 'phone', 'LIKE', "%{$nickname}%")
+                      ->whereOr($wechatUserAlias . 'nickname', 'LIKE', "%{$nickname}%");
+            });
         }
         //所在城市
         if (isset($where['country']) && $where['country']) {

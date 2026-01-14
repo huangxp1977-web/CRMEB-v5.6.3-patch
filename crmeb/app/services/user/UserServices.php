@@ -584,7 +584,8 @@ class UserServices extends BaseServices
     {
         /** @var UserWechatuserServices $userWechatUser */
         $userWechatUser = app()->make(UserWechatuserServices::class);
-        $fields = 'u.*,w.country,w.province,w.city,w.sex,w.unionid,w.openid,w.user_type as w_user_type,w.groupid,w.tagid_list,w.subscribe,w.subscribe_time';
+        // 增加 w.nickname 和 w.headimgurl 字段，用于微信用户显示
+        $fields = 'u.*,w.country,w.province,w.city,w.sex,w.unionid,w.openid,w.user_type as w_user_type,w.groupid,w.tagid_list,w.subscribe,w.subscribe_time,w.nickname as w_nickname,w.headimgurl';
         [$list, $count] = $userWechatUser->getWhereUserList($where, $fields);
         if ($list) {
             $uids = array_column($list, 'uid');
@@ -596,6 +597,18 @@ class UserServices extends BaseServices
             $agentLevel = app()->make(AgentLevelServices::class)->getAgentLevelArr();
             $spread_names = $this->dao->getColumn([['uid', 'in', array_unique(array_column($list, 'spread_uid'))]], 'nickname', 'uid');
             foreach ($list as &$item) {
+                // 微信用户（公众号、小程序）优先显示微信表中的昵称和头像
+                if (in_array($item['user_type'], ['wechat', 'routine'])) {
+                    if (!empty($item['w_nickname'])) {
+                        $item['nickname'] = $item['w_nickname'];
+                    }
+                    if (!empty($item['headimgurl'])) {
+                        $item['avatar'] = $item['headimgurl'];
+                    }
+                }
+                // 清理临时字段
+                unset($item['w_nickname'], $item['headimgurl']);
+                
                 if (empty($item['addres'])) {
                     if (!empty($item['country']) || !empty($item['province']) || !empty($item['city'])) {
                         $item['addres'] = $item['country'] . $item['province'] . $item['city'];
@@ -664,7 +677,15 @@ class UserServices extends BaseServices
 
         $f[] = Form::date('birthday', '生日', $user->getData('birthday') ? date('Y-m-d', $user->getData('birthday')) : '');
         $f[] = Form::input('card_id', '身份证号', $user->getData('card_id'));
-        $f[] = Form::input('addres', '用户地址', $user->getData('addres'));
+        // 如果用户表地址为空，从用户地址表获取默认地址
+        $userAddres = $user->getData('addres');
+        if (empty($userAddres)) {
+            $defaultAddressInfo = app()->make(UserAddressServices::class)->getUserDefaultAddress($id);
+            if ($defaultAddressInfo) {
+                $userAddres = $defaultAddressInfo['province'] . $defaultAddressInfo['city'] . $defaultAddressInfo['district'] . $defaultAddressInfo['detail'];
+            }
+        }
+        $f[] = Form::input('addres', '用户地址', $userAddres);
         $f[] = Form::textarea('mark', '用户备注', $user->getData('mark'));
         $f[] = Form::input('pwd', '登录密码')->type('password')->placeholder('不改密码请留空');
         $f[] = Form::input('true_pwd', '确认密码')->type('password')->placeholder('不改密码请留空');
@@ -1279,6 +1300,22 @@ class UserServices extends BaseServices
         if (!$userInfo) {
             throw new AdminException(100026);
         }
+        
+        // 微信用户（公众号、小程序）优先显示微信表中的昵称和头像
+        if (in_array($userInfo['user_type'], ['wechat', 'routine'])) {
+            /** @var WechatUserServices $wechatUserServices */
+            $wechatUserServices = app()->make(WechatUserServices::class);
+            $wechatUser = $wechatUserServices->getOne(['uid' => $uid, 'is_del' => 0]);
+            if ($wechatUser) {
+                if (!empty($wechatUser['nickname'])) {
+                    $userInfo['nickname'] = $wechatUser['nickname'];
+                }
+                if (!empty($wechatUser['headimgurl'])) {
+                    $userInfo['avatar'] = $wechatUser['headimgurl'];
+                }
+            }
+        }
+        
         $userInfo['avatar'] = strpos($userInfo['avatar'], 'http') === false ? (sys_config('site_url') . $userInfo['avatar']) : $userInfo['avatar'];
         $userInfo['overdue_time'] = date('Y-m-d H:i:s', $userInfo['overdue_time']);
         $userInfo['birthday'] = $userInfo['birthday'] < 0 ? 0 : $userInfo['birthday'];
@@ -1438,6 +1475,22 @@ class UserServices extends BaseServices
         /** @var UserBillServices $userBill */
         $userBill = app()->make(UserBillServices::class);
         $uid = (int)$info['uid'];
+        
+        // 微信用户优先显示微信表中的昵称和头像
+        if (in_array($info['user_type'] ?? '', ['wechat', 'routine'])) {
+            /** @var WechatUserServices $wechatUserServices */
+            $wechatUserServices = app()->make(WechatUserServices::class);
+            $wechatUserInfo = $wechatUserServices->getOne(['uid' => $uid, 'is_del' => 0]);
+            if ($wechatUserInfo) {
+                if (!empty($wechatUserInfo['nickname'])) {
+                    $info['nickname'] = $wechatUserInfo['nickname'];
+                }
+                if (!empty($wechatUserInfo['headimgurl'])) {
+                    $info['avatar'] = $wechatUserInfo['headimgurl'];
+                }
+            }
+        }
+        
         $broken_time = intval(sys_config('extract_time'));
         $search_time = time() - 86400 * $broken_time;
         //改造时间
@@ -1509,8 +1562,19 @@ class UserServices extends BaseServices
         // $couponService->sendMemberCoupon($uid);
         //看是否会员过期
         $this->offMemberLevel($uid, $userInfo);
-        $wechatUserInfo = $wechatUser->getOne(['uid' => $uid, 'user_type' => $tokenData['type']]);
+        // 微信用户信息查询：按 uid 查找，不限制 user_type（因为 tokenType 可能是 api）
+        $wechatUserInfo = $wechatUser->getOne(['uid' => $uid, 'is_del' => 0]);
         $user['is_complete'] = $wechatUserInfo['is_complete'] ?? 0;
+        
+        // 微信用户优先显示微信表中的昵称和头像
+        if ($wechatUserInfo) {
+            if (!empty($wechatUserInfo['nickname'])) {
+                $user['nickname'] = $wechatUserInfo['nickname'];
+            }
+            if (!empty($wechatUserInfo['headimgurl'])) {
+                $user['avatar'] = $wechatUserInfo['headimgurl'];
+            }
+        }
         $user['couponCount'] = $storeCoupon->getUserValidCouponCount((int)$uid);
         $user['like'] = app()->make(StoreProductRelationServices::class)->getUserCollectCount($user['uid']);
         $user['orderStatusNum'] = $storeOrder->getOrderData($uid);
@@ -2253,6 +2317,13 @@ class UserServices extends BaseServices
             $userInfo['birthday'] = (int)$userInfo['birthday'] ? date('Y-m-d', (int)$userInfo['birthday']) : '';
             $userInfo['level'] = $userInfo['level'] != 0 ? $userInfo['level'] : '';
             $userInfo['group_id'] = $userInfo['group_id'] != 0 ? $userInfo['group_id'] : '';
+            // 如果用户表地址为空，从用户地址表获取默认地址
+            if (empty($userInfo['addres'])) {
+                $defaultAddressInfo = app()->make(UserAddressServices::class)->getUserDefaultAddress($uid);
+                if ($defaultAddressInfo) {
+                    $userInfo['addres'] = $defaultAddressInfo['province'] . $defaultAddressInfo['city'] . $defaultAddressInfo['district'] . $defaultAddressInfo['detail'];
+                }
+            }
         }
         $levelInfo = $systemUserLevelServices->getWhereLevelList([], 'id,name');
         $groupInfo = $userGroupServices->getGroupList();

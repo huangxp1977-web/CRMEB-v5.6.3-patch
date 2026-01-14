@@ -138,7 +138,8 @@ class UserAddressServices extends BaseServices
         if (!$this->getAddress($id)) {
             throw new ApiException(400648);
         }
-        if (!$this->dao->update($uid, ['is_default' => 0], 'uid'))
+        // 使用严格的 false 检查，因为如果没有其他地址 update 返回 0 是正常的
+        if ($this->dao->update($uid, ['is_default' => 0], 'uid') === false)
             throw new ApiException(400649);
         if (!$this->dao->update($id, ['is_default' => 1]))
             throw new ApiException(400650);
@@ -213,7 +214,7 @@ class UserAddressServices extends BaseServices
         if ($addressInfo['is_default']) {
             app()->make(WechatUserServices::class)->update(['uid' => $uid], ['province' => $addressInfo['province']]);
         }
-        if ($address_check && $address_check['is_del'] == 0 && $address_check['uid'] = $uid) {
+        if ($address_check && $address_check['is_del'] == 0 && $address_check['uid'] == $uid) {
             $id = (int)$addressInfo['id'];
             unset($addressInfo['id']);
             if (!$this->dao->update($id, $addressInfo, 'id')) {

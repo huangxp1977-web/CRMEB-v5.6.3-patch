@@ -133,15 +133,33 @@ class WechatUserServices extends BaseServices
      */
     public function updateUser($openid)
     {
+        // 先获取数据库中的现有用户信息
+        $existingUser = $this->dao->getOne(['openid' => $openid, 'is_del' => 0]);
+        
         $userInfo = WechatService::getUserInfo($openid);
         $userInfo = is_object($userInfo) ? $userInfo->toArray() : $userInfo;
         if (isset($userInfo['nickname']) && $userInfo['nickname']) {
             $userInfo['nickname'] = filter_emoji($userInfo['nickname']);
         } else {
-            mt_srand();
-            $userInfo['nickname'] = 'wx' . rand(100000, 999999);
-            $userInfo['avatar'] = sys_config('h5_avatar');
+            // 如果微信没返回 nickname，保留数据库中的原值，不生成随机值
+            if ($existingUser && !empty($existingUser['nickname'])) {
+                $userInfo['nickname'] = $existingUser['nickname'];
+            } else {
+                mt_srand();
+                $userInfo['nickname'] = 'wx' . rand(100000, 999999);
+            }
         }
+        
+        // 保护其他字段：如果微信返回空值，则保留数据库中的原值
+        if ($existingUser) {
+            $protectedFields = ['headimgurl', 'language', 'city', 'province', 'country'];
+            foreach ($protectedFields as $field) {
+                if (empty($userInfo[$field]) && !empty($existingUser[$field])) {
+                    $userInfo[$field] = $existingUser[$field];
+                }
+            }
+        }
+        
         if (isset($userInfo['tagid_list'])) {
             $userInfo['tagid_list'] = implode(',', $userInfo['tagid_list']);
         }
@@ -342,6 +360,18 @@ class WechatUserServices extends BaseServices
             if ($wechatUser && $wechatUser['openid'] != $wechatInfo['openid']) {
                 return $userInfo;
             }
+            
+            // 保护已有用户数据：如果微信返回的数据为空，则保留数据库中的原值
+            if ($wechatUser) {
+                $protectedFields = ['nickname', 'headimgurl', 'language', 'city', 'province', 'country'];
+                foreach ($protectedFields as $field) {
+                    // 如果微信返回的字段为空，但数据库中有值，则保留原值
+                    if (empty($wechatInfo[$field]) && !empty($wechatUser[$field])) {
+                        $wechatInfo[$field] = $wechatUser[$field];
+                    }
+                }
+            }
+            
             /** @var LoginServices $loginService */
             $loginService = app()->make(LoginServices::class);
             $this->transaction(function () use ($loginService, $wechatInfo, $userInfo, $uid, $userType, $spreadId, $wechatUser, $agent_id) {
