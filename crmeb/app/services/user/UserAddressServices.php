@@ -234,9 +234,6 @@ class UserAddressServices extends BaseServices
             if (!$address = $this->dao->save($addressInfo)) {
                 throw new ApiException(100022);
             }
-            if ($addressInfo['is_default']) {
-                $this->setDefault($uid, (int)$address->id);
-            }
             return ['type' => 'add', 'msg' => '添加地址成功', 'data' => ['id' => $address->id]];
         }
     }
