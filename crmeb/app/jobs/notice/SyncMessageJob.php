@@ -67,8 +67,8 @@ class SyncMessageJob extends BaseJobs
             Log::error('同步模版消息失败：' . $e->getMessage());
             return true;
         }
-        if (!$res->errcode && $res->template_id) {
-            app()->make(SystemNotificationServices::class)->update(['wechat_tempkey' => $key], ['wechat_tempid' => $res->template_id]);
+        if (empty($res['errcode']) && !empty($res['template_id'])) {
+            app()->make(SystemNotificationServices::class)->update(['wechat_tempkey' => $key], ['wechat_tempid' => $res['template_id']]);
         }
         return true;
     }

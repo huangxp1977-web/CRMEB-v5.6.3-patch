@@ -11,7 +11,9 @@
 
 return [
     //默认扩展
-    'default' => 'yihaotong',
+    //默认扩展
+    //默认扩展
+    'default' => 'aliyun',
     //单个手机每日发送上限
     'maxPhoneCount' => 20,
     //验证码每分钟发送上线
@@ -20,11 +22,6 @@ return [
     'maxIpCount' => 50,
     //驱动模式
     'stores' => [
-        //一号通
-        'yihaotong' => [
-            'sms_account' => '',
-            'sms_token' => ''
-        ],
         //阿里云
         'aliyun' => [
             'aliyun_SignName' => '',

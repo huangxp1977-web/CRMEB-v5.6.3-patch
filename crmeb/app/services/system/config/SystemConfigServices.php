@@ -1016,6 +1016,18 @@ class SystemConfigServices extends BaseServices
         $service = app()->make(SystemConfigTabServices::class);
         $title = $service->value(['id' => $tabId], 'title');
         $list = $this->dao->getConfigTabAllList($tabId);
+        // MODIFY: Force remove yihaotong and logsms options for sms_save_type
+        foreach ($list as &$item) {
+            if ($item['menu_name'] === 'sms_save_type' || $item['info'] === '短信类型') {
+                $item['parameter'] = "aliyun=>阿里云\ntencent=>腾讯云";
+                $val = json_decode($item['value'], true);
+                if ($val == 'yihaotong' || $val == 'logsms' || empty($val)) {
+                    $item['value'] = json_encode('aliyun');
+                }
+            }
+        }
+        unset($item);
+        
         $formbuider = $this->createForm($list);
         $name = 'setting';
         if ($url) {

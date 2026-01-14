@@ -34,7 +34,7 @@ class SmsService extends NoticeService
      * 短信类型
      * @var string[]
      */
-    private $smsType = ['yihaotong', 'aliyun', 'tencent'];
+    private $smsType = ['aliyun', 'tencent'];
 
     /**
      * 发送短信消息
