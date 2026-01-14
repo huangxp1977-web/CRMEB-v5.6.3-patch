@@ -133,7 +133,7 @@
 </template>
 
 <script>
-import { getCategoryListApi, moveApi, onlineUpload, scanUploadCode } from '@/api/uploadPictures';
+import { getCategoryListApi, moveApi, onlineUpload, scanUploadCode, checkDuplicateApi } from '@/api/uploadPictures';
 import Setting from '@/setting';
 import { getCookies } from '@/libs/util';
 import { fileUpload, scanUploadQrcode, scanUploadGet } from '@/api/setting';
@@ -188,6 +188,10 @@ export default {
       limit: 20,
       loading: false,
       time: undefined,
+      // 重复文件处理相关
+      duplicateFiles: [],
+      duplicateReplaceIds: {},
+      batchAction: null, // 'skip_all' | 'replace_all' | null
     };
   },
   created() {},
@@ -244,9 +248,35 @@ export default {
         if (this.ruleForm.imgList.length) {
           if (this.loading) return;
           this.loading = true;
+          
+          // 检查重复文件
+          const filenames = this.ruleForm.imgList.map(f => f.name || f.raw?.name).filter(Boolean);
+          let duplicateMap = {};
+          try {
+            const checkRes = await checkDuplicateApi(filenames);
+            if (checkRes.status === 200 && checkRes.data.duplicates.length > 0) {
+              // 有重复文件，询问用户
+              const resolved = await this.handleDuplicateFiles(checkRes.data.duplicates);
+              if (!resolved) {
+                this.loading = false;
+                return; // 用户取消
+              }
+              duplicateMap = this.duplicateReplaceIds;
+            }
+          } catch (err) {
+            console.warn('检查重复文件失败，继续上传', err);
+          }
+          
           for (let i = 0; i < this.ruleForm.imgList.length; i++) {
             const file = this.ruleForm.imgList[i].raw;
-            await this.uploadItem(file);
+            const fileName = file?.name;
+            // 检查是否需要跳过此文件
+            if (duplicateMap[fileName] === 'skip') {
+              continue;
+            }
+            // 检查是否需要替换
+            const replaceId = duplicateMap[fileName];
+            await this.uploadItem(file, replaceId && replaceId !== 'skip' ? [replaceId] : []);
             if (i == this.ruleForm.imgList.length - 1) {
               this.$message.success('上传成功');
               this.$emit('uploadSuccess');
@@ -288,16 +318,18 @@ export default {
         });
       }
     },
-    uploadItem(file) {
+    uploadItem(file, replaceIds = []) {
       return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('pid', this.ruleForm.region);
+        if (replaceIds.length > 0) {
+          replaceIds.forEach(id => formData.append('replace_ids[]', id));
+        }
         fileUpload(formData)
           .then((res) => {
             if (res.status == 200) {
               resolve();
-              // this.$emit('uploadImgSuccess', res.data);
             } else {
               this.loading = false;
               this.$message({
@@ -311,6 +343,46 @@ export default {
             this.loading = false;
             this.$message.error(err.msg);
           });
+      });
+    },
+    /**
+     * 处理重复文件对话框
+     */
+    handleDuplicateFiles(duplicates) {
+      return new Promise((resolve) => {
+        this.duplicateFiles = duplicates;
+        this.duplicateReplaceIds = {};
+        
+        const fileList = duplicates.map(d => d.name).join('、');
+        const count = duplicates.length;
+        
+        this.$msgbox({
+          title: `发现 ${count} 个同名文件`,
+          message: `以下文件已存在：${fileList.length > 50 ? fileList.substring(0, 50) + '...' : fileList}`,
+          showCancelButton: true,
+          distinguishCancelAndClose: true,
+          confirmButtonText: count > 1 ? '全部替换' : '替换',
+          cancelButtonText: count > 1 ? '全部跳过' : '跳过',
+          closeOnClickModal: false,
+          type: 'warning',
+        }).then(() => {
+          // 全部替换
+          duplicates.forEach(d => {
+            this.duplicateReplaceIds[d.name] = d.att_id;
+          });
+          resolve(true);
+        }).catch((action) => {
+          if (action === 'cancel') {
+            // 全部跳过
+            duplicates.forEach(d => {
+              this.duplicateReplaceIds[d.name] = 'skip';
+            });
+            resolve(true);
+          } else {
+            // 关闭对话框，取消上传
+            resolve(false);
+          }
+        });
       });
     },
     beforeUpload(file) {

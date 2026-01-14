@@ -341,4 +341,52 @@ class SystemAttachmentServices extends BaseServices
         }
         return true;
     }
+
+    /**
+     * 检查重复文件（全局检查）
+     * @param array $filenames 文件名数组
+     * @return array 返回重复的文件信息
+     */
+    public function checkDuplicateFiles(array $filenames): array
+    {
+        $duplicates = [];
+        $siteUrl = sys_config('site_url');
+        
+        foreach ($filenames as $filename) {
+            $existing = $this->dao->getOne([
+                'real_name' => $filename,
+                'module_type' => 1
+            ]);
+            
+            if ($existing) {
+                $attDir = $existing['att_dir'];
+                if ($siteUrl && strpos($attDir, 'http') === false) {
+                    $attDir = $siteUrl . $attDir;
+                }
+                $duplicates[] = [
+                    'name' => $filename,
+                    'att_id' => $existing['att_id'],
+                    'att_dir' => $attDir,
+                    'satt_dir' => $existing['satt_dir'] ? ($siteUrl && strpos($existing['satt_dir'], 'http') === false ? $siteUrl . $existing['satt_dir'] : $existing['satt_dir']) : $attDir
+                ];
+            }
+        }
+        
+        return $duplicates;
+    }
+
+    /**
+     * 删除指定附件（用于替换时先删除旧文件）
+     * @param array $attIds 附件ID数组
+     * @return bool
+     */
+    public function deleteByIds(array $attIds): bool
+    {
+        if (empty($attIds)) {
+            return true;
+        }
+        $this->del(implode(',', $attIds));
+        return true;
+    }
 }
+

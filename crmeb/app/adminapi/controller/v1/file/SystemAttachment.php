@@ -223,4 +223,43 @@ class SystemAttachment extends AuthController
         );;
         return app('json')->success(100032);
     }
+
+    /**
+     * 检查重复文件
+     * @return \think\Response
+     */
+    public function checkDuplicate()
+    {
+        $filenames = $this->request->post('filenames', []);
+        if (empty($filenames) || !is_array($filenames)) {
+            return app('json')->success(['duplicates' => []]);
+        }
+        $duplicates = $this->service->checkDuplicateFiles($filenames);
+        return app('json')->success(['duplicates' => $duplicates]);
+    }
+
+    /**
+     * 图片上传（支持替换）
+     * @param int $upload_type
+     * @param int $type
+     * @return mixed
+     */
+    public function uploadWithReplace($upload_type = 0, $type = 0)
+    {
+        [$pid, $file, $menuName, $replaceIds] = $this->request->postMore([
+            ['pid', 0],
+            ['file', 'file'],
+            ['menu_name', ''],
+            ['replace_ids', []]
+        ], true);
+        
+        // 如果有需要替换的文件，先删除旧文件
+        if (!empty($replaceIds) && is_array($replaceIds)) {
+            $this->service->deleteByIds($replaceIds);
+        }
+        
+        $res = $this->service->upload((int)$pid, $file, $upload_type, $type, $menuName);
+        return app('json')->success(100032, ['src' => $res]);
+    }
 }
+

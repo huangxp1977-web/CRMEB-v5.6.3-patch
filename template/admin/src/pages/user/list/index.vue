@@ -373,6 +373,11 @@
             <div>{{ scope.row.phone }}</div>
           </template>
         </el-table-column>
+        <el-table-column label="地区" min-width="80">
+          <template slot-scope="scope">
+            <div>{{ (scope.row.user_type === '公众号' || scope.row.user_type === '小程序') && scope.row.addres ? scope.row.addres : '-' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column label="用户类型" min-width="100">
           <template slot-scope="scope">
             <div>{{ scope.row.user_type }}</div>

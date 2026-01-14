@@ -52,6 +52,10 @@ Route::group('file', function () {
     Route::get('scan_upload/image/:scan_token', 'v1.file.SystemAttachment/scanUploadImage')->option(['real_name' => '获取扫码上传的图片数据']);
     //网络图片上传
     Route::post('online_upload', 'v1.file.SystemAttachment/onlineUpload')->option(['real_name' => '网络图片上传']);
+    //检查重复文件
+    Route::post('check_duplicate', 'v1.file.SystemAttachment/checkDuplicate')->option(['real_name' => '检查重复文件']);
+    //上传图片（支持替换）
+    Route::post('upload_replace/[:upload_type]', 'v1.file.SystemAttachment/uploadWithReplace')->option(['real_name' => '上传图片（支持替换）']);
 })->middleware([
     \app\http\middleware\AllowOriginMiddleware::class,
     \app\adminapi\middleware\AdminAuthTokenMiddleware::class,

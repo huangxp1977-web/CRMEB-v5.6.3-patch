@@ -133,3 +133,30 @@ export function videoCloudUpload(data) {
     data,
   });
 }
+
+/**
+ * @description 检查重复文件
+ * @param {Array} filenames 文件名数组
+ */
+export function checkDuplicateApi(filenames) {
+  return request({
+    url: 'file/check_duplicate',
+    method: 'post',
+    data: { filenames },
+  });
+}
+
+/**
+ * @description 上传图片（支持替换）
+ * @param {FormData} formData 表单数据
+ */
+export function fileUploadReplace(formData) {
+  return request({
+    url: 'file/upload_replace',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}

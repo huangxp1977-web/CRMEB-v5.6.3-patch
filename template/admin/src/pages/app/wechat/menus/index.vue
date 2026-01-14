@@ -104,7 +104,7 @@
               </el-tabs>
               <el-col :span="24" v-if="isTrue">
                 <el-button size="small" type="danger" v-db-click @click="deltMenus">删除</el-button>
-                <el-button type="primary" v-db-click @click="submenus('formValidate')">保存并发布</el-button>
+                <el-button type="primary" :disabled="!isMenuChanged" v-db-click @click="submenus('formValidate')">保存并发布</el-button>
               </el-col>
             </el-col>
           </el-col>
@@ -143,9 +143,16 @@ export default {
       },
       parentMenuId: null,
       list: [],
+      originalList: [], // 保存初始数据用于对比
       checkedMenuId: null,
       isTrue: false,
     };
+  },
+  computed: {
+    // 检查菜单是否有变动
+    isMenuChanged() {
+      return JSON.stringify(this.list) !== JSON.stringify(this.originalList);
+    },
   },
   mounted() {
     this.getMenus();
@@ -177,6 +184,8 @@ export default {
         .then(async (res) => {
           let data = res.data;
           this.list = data.menus;
+          // 深拷贝保存初始数据
+          this.originalList = JSON.parse(JSON.stringify(data.menus));
         })
         .catch((res) => {
           this.$message.error(res.msg);
@@ -204,6 +213,8 @@ export default {
       MenuApi(data)
         .then(async (res) => {
           this.$message.success(res.msg);
+          // 保存成功后更新初始数据
+          this.originalList = JSON.parse(JSON.stringify(this.list));
           this.checkedMenuId = null;
           this.formValidate = {};
           this.isTrue = false;
