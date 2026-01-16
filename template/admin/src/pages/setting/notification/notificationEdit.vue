@@ -60,7 +60,24 @@
                 </div>
                 <div v-if="item.slot === 'is_sms' && !loading">
                   <el-form-item label="短信模版ID：">
-                    <el-input v-model="formData.sms_id" placeholder="短信模版ID" style="width: 500px"></el-input>
+                    <el-select
+                      v-model="formData.sms_id"
+                      placeholder="请选择短信模板"
+                      style="width: 500px"
+                      filterable
+                      @focus="loadSmsTemplates"
+                      @change="onSmsTemplateChange"
+                    >
+                      <el-option
+                        v-for="tpl in smsTemplateList"
+                        :key="tpl.code"
+                        :label="`${tpl.name} (${tpl.code})`"
+                        :value="tpl.code"
+                      >
+                        <span style="float: left">{{ tpl.name }}</span>
+                        <span style="float: right; color: #8492a6; font-size: 13px">{{ tpl.code }}</span>
+                      </el-option>
+                    </el-select>
                   </el-form-item>
                   <el-form-item label="通知内容：">
                     <div class="content">
@@ -264,7 +281,7 @@
 </template>
 
 <script>
-import { getNotificationInfo, getNotificationSave } from '@/api/notification.js';
+import { getNotificationInfo, getNotificationSave, getSmsTemplateList } from '@/api/notification.js';
 import keysList from './components/keysList.vue';
 export default {
   components: { keysList },
@@ -321,11 +338,15 @@ export default {
         ],
       },
       keyList: [],
+      smsTemplateList: [],
+      smsTemplateLoading: false,
     };
   },
   created() {
     this.id = this.$route.query.id;
     this.getData(this.id, this.tagName, 1);
+    // 预加载阿里云短信模板列表
+    this.loadSmsTemplates();
   },
   methods: {
     handleContentChange(e) {
@@ -403,6 +424,31 @@ export default {
         textInput.selectionEnd = index + e.length;
         textInput.focus();
       });
+    },
+    // 加载阿里云短信模板列表
+    loadSmsTemplates() {
+      if (this.smsTemplateList.length > 0 || this.smsTemplateLoading) return;
+      this.smsTemplateLoading = true;
+      getSmsTemplateList()
+        .then((res) => {
+          this.smsTemplateList = res.data;
+        })
+        .catch((err) => {
+          this.$message.error('获取模板列表失败：' + (err.msg || err));
+        })
+        .finally(() => {
+          this.smsTemplateLoading = false;
+        });
+    },
+    // 选择模板后自动填充通知内容
+    onSmsTemplateChange(templateCode) {
+      const selectedTemplate = this.smsTemplateList.find((tpl) => tpl.code === templateCode);
+      if (selectedTemplate) {
+        // 使用 $set 确保响应式更新
+        this.$set(this.formData, 'sms_text', selectedTemplate.content);
+        // 如果上面不起作用，尝试强制更新视图
+        this.$forceUpdate();
+      }
     },
   },
 };

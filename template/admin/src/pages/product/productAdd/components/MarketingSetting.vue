@@ -200,7 +200,7 @@
       <div class="line"></div>
     </el-col>
     <el-col :span="24">
-      <el-form-item label="已售数量：">
+      <el-form-item label="虚拟销量：">
         <el-input-number
           :controls="false"
           :min="0"

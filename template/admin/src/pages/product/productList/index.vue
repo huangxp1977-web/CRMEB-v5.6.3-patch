@@ -271,7 +271,7 @@
             <span>{{ scope.row.price }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="销量" min-width="100">
+        <el-table-column label="实际销量" min-width="100">
           <template slot-scope="scope">
             <span>{{ scope.row.sales }}</span>
           </template>

@@ -13,6 +13,7 @@ namespace crmeb\services\sms\storage;
 
 use AlibabaCloud\SDK\Dysmsapi\V20170525\Dysmsapi;
 use AlibabaCloud\SDK\Dysmsapi\V20170525\Models\SendSmsRequest;
+use AlibabaCloud\SDK\Dysmsapi\V20170525\Models\QuerySmsTemplateListRequest;
 use AlibabaCloud\Tea\Exception\TeaError;
 use AlibabaCloud\Tea\Utils\Utils\RuntimeOptions;
 use crmeb\exceptions\ApiException;
@@ -116,5 +117,89 @@ class Aliyun extends BaseSms
 
     public function record($record_id)
     {
+    }
+
+    /**
+     * 获取短信模板列表
+     * @param int $page 页码
+     * @param int $pageSize 每页数量
+     * @return array
+     */
+    public function getTemplateList(int $page = 1, int $pageSize = 50): array
+    {
+        $config = new AliConfig([
+            "accessKeyId" => $this->AccessKeyId,
+            "accessKeySecret" => $this->AccessKeySecret
+        ]);
+        $config->endpoint = "dysmsapi.aliyuncs.com";
+        $client = new Dysmsapi($config);
+
+        $request = new QuerySmsTemplateListRequest([
+            "pageIndex" => $page,
+            "pageSize" => $pageSize,
+        ]);
+
+        try {
+            $runtime = new RuntimeOptions([]);
+            $resp = $client->querySmsTemplateListWithOptions($request, $runtime);
+
+            // 返回审核通过的模板列表
+            $templates = [];
+            if (isset($resp->body->smsTemplateList)) {
+                foreach ($resp->body->smsTemplateList as $tpl) {
+                    if ($tpl->auditStatus == 'AUDIT_STATE_PASS') {
+                        $templates[] = [
+                            'code' => $tpl->templateCode,
+                            'name' => $tpl->templateName,
+                            'content' => preg_replace('/\${(.*?)}/', '{\$$1}', $tpl->templateContent),
+                        ];
+                    }
+                }
+            }
+            return $templates;
+        } catch (\Exception $e) {
+            throw new ApiException('【阿里云平台错误提示】：' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 获取短信签名列表
+     * @param int $page 页码
+     * @param int $pageSize 每页数量
+     * @return array
+     */
+    public function getSignList(int $page = 1, int $pageSize = 50): array
+    {
+        $config = new AliConfig([
+            "accessKeyId" => $this->AccessKeyId,
+            "accessKeySecret" => $this->AccessKeySecret
+        ]);
+        $config->endpoint = "dysmsapi.aliyuncs.com";
+        $client = new Dysmsapi($config);
+
+        $request = new \AlibabaCloud\SDK\Dysmsapi\V20170525\Models\QuerySmsSignListRequest([
+            "pageIndex" => $page,
+            "pageSize" => $pageSize,
+        ]);
+
+        try {
+            $runtime = new RuntimeOptions([]);
+            $resp = $client->querySmsSignListWithOptions($request, $runtime);
+
+            // 返回审核通过的签名列表
+            $signs = [];
+            if (isset($resp->body->smsSignList)) {
+                foreach ($resp->body->smsSignList as $sign) {
+                    if ($sign->auditStatus == 'AUDIT_STATE_PASS') {
+                        $signs[] = [
+                            'name' => $sign->signName,
+                        ];
+                    }
+                }
+            }
+            return $signs;
+        } catch (\Exception $e) {
+            throw new ApiException('【阿里云平台错误提示】：' . $e->getMessage());
+        }
     }
 }

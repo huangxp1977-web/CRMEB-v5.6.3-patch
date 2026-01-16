@@ -176,4 +176,60 @@ class SystemNotification extends AuthController
         CacheService::clear();
         return app('json')->success(100014);
     }
+
+    /**
+     * 获取阿里云短信模板列表
+     * @return mixed
+     */
+    public function getSmsTemplateList()
+    {
+        $accessKeyId = sys_config('aliyun_AccessKeyId', '');
+        $accessKeySecret = sys_config('aliyun_AccessKeySecret', '');
+        
+        if (empty($accessKeyId) || empty($accessKeySecret)) {
+            return app('json')->fail('阿里云短信未配置，请先配置 AccessKeyId 和 AccessKeySecret');
+        }
+
+        try {
+            $config = [
+                'aliyun_AccessKeyId' => $accessKeyId,
+                'aliyun_AccessKeySecret' => $accessKeySecret,
+                'aliyun_SignName' => sys_config('aliyun_SignName', ''),
+            ];
+            $accessToken = new \crmeb\services\AccessTokenServeService('', '');
+            $aliyun = new \crmeb\services\sms\storage\Aliyun('aliyun', $accessToken, 'sms', $config);
+            $list = $aliyun->getTemplateList();
+            return app('json')->success($list);
+        } catch (\Exception $e) {
+            return app('json')->fail($e->getMessage());
+        }
+    }
+
+    /**
+     * 获取阿里云短信签名列表
+     * @return mixed
+     */
+    public function getSmsSignList()
+    {
+        $accessKeyId = sys_config('aliyun_AccessKeyId', '');
+        $accessKeySecret = sys_config('aliyun_AccessKeySecret', '');
+        
+        if (empty($accessKeyId) || empty($accessKeySecret)) {
+            return app('json')->fail('阿里云短信未配置，请先配置 AccessKeyId 和 AccessKeySecret');
+        }
+
+        try {
+            $config = [
+                'aliyun_AccessKeyId' => $accessKeyId,
+                'aliyun_AccessKeySecret' => $accessKeySecret,
+                'aliyun_SignName' => sys_config('aliyun_SignName', ''),
+            ];
+            $accessToken = new \crmeb\services\AccessTokenServeService('', '');
+            $aliyun = new \crmeb\services\sms\storage\Aliyun('aliyun', $accessToken, 'sms', $config);
+            $list = $aliyun->getSignList();
+            return app('json')->success($list);
+        } catch (\Exception $e) {
+            return app('json')->fail($e->getMessage());
+        }
+    }
 }

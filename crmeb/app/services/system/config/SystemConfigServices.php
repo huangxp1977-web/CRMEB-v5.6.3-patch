@@ -458,6 +458,16 @@ class SystemConfigServices extends BaseServices
                         'class' => 'tips-info',
                         'domProps' => ['innerHTML' => $data['desc']]
                     ])->col(13)->readonly(true);
+                } elseif ($data['menu_name'] == 'aliyun_SignName') {
+                    // 阿里云短信签名 - 使用下拉选择器
+                    $signOptions = $this->getAliyunSignOptions();
+                    $formbuider[] = $this->builder->select($data['menu_name'], $data['info'], trim($data['value']))
+                        ->options($signOptions)
+                        ->appendRule('suffix', [
+                            'type' => 'div',
+                            'class' => 'tips-info',
+                            'domProps' => ['innerHTML' => $data['desc']]
+                        ])->col(13);
                 } else {
                     $formbuider[] = $this->builder->input($data['menu_name'], $data['info'], $data['value'])->appendRule('suffix', [
                         'type' => 'div',
@@ -485,6 +495,39 @@ class SystemConfigServices extends BaseServices
             'domProps' => ['innerHTML' => $data['desc']]
         ])->rows(6)->col(13);
         return $formbuider;
+    }
+
+    /**
+     * 获取阿里云短信签名选项列表
+     * @return array
+     */
+    protected function getAliyunSignOptions(): array
+    {
+        $options = [];
+        try {
+            // 检查阿里云配置是否存在（AccessKeyId 不为空）
+            $accessKeyId = sys_config('aliyun_AccessKeyId', '');
+            $accessKeySecret = sys_config('aliyun_AccessKeySecret', '');
+            
+            if (!empty($accessKeyId) && !empty($accessKeySecret)) {
+                $config = [
+                    'aliyun_AccessKeyId' => $accessKeyId,
+                    'aliyun_AccessKeySecret' => $accessKeySecret,
+                    'aliyun_SignName' => sys_config('aliyun_SignName', ''),
+                ];
+                // 创建 AccessTokenServeService 实例（阿里云不需要，但构造函数要求）
+                $accessToken = new \crmeb\services\AccessTokenServeService('', '');
+                $aliyun = new \crmeb\services\sms\storage\Aliyun('aliyun', $accessToken, 'sms', $config);
+                $signList = $aliyun->getSignList();
+                foreach ($signList as $sign) {
+                    $options[] = ['label' => $sign['name'], 'value' => $sign['name']];
+                }
+            }
+        } catch (\Exception $e) {
+            // 记录错误日志便于调试
+            \think\facade\Log::error('获取阿里云签名列表失败: ' . $e->getMessage());
+        }
+        return $options;
     }
 
     /**

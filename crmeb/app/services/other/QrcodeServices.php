@@ -72,7 +72,13 @@ class QrcodeServices extends BaseServices
     public function createTemporaryQrcode($id, $type, $qrcode_id = '')
     {
         $qrcode = WechatService::qrcodeService();
-        $data = $qrcode->temporary($id, 30 * 24 * 3600)->toArray();
+        $result = $qrcode->temporary($id, 30 * 24 * 3600);
+        // EasyWeChat 6.x 直接返回数组，4.x 返回 Response 对象
+        $data = is_array($result) ? $result : $result->toArray();
+        if (!isset($data['url'])) {
+            \think\facade\Log::error('Create Temporary Qrcode Failed: ' . json_encode($data));
+            throw new AdminException('微信二维码生成失败，请检查微信配置');
+        }
         $data['qrcode_url'] = $data['url'];
         $data['expire_seconds'] = $data['expire_seconds'] + time();
         $data['url'] = $qrcode->url($data['ticket']);
@@ -117,7 +123,13 @@ class QrcodeServices extends BaseServices
     public function createForeverQrcode($id, $type)
     {
         $qrcode = WechatService::qrcodeService();
-        $data = $qrcode->forever($id)->toArray();
+        $result = $qrcode->forever($id);
+        // EasyWeChat 6.x 直接返回数组，4.x 返回 Response 对象
+        $data = is_array($result) ? $result : $result->toArray();
+        if (!isset($data['url'])) {
+            \think\facade\Log::error('Create Forever Qrcode Failed: ' . json_encode($data));
+            throw new AdminException('微信二维码生成失败，请检查微信配置');
+        }
         $data['qrcode_url'] = $data['url'];
         $data['url'] = $qrcode->url($data['ticket']);
         $data['expire_seconds'] = 0;

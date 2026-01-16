@@ -64,3 +64,13 @@ export function notificationForm(id) {
     method: 'get',
   });
 }
+
+/**
+ * @description 获取阿里云短信模板列表
+ */
+export function getSmsTemplateList() {
+  return request({
+    url: `setting/notification/sms_template_list`,
+    method: 'get',
+  });
+}

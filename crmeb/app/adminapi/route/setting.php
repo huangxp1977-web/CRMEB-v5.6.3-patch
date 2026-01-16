@@ -290,6 +290,10 @@ Route::group('setting', function () {
         Route::post('notification/save', 'v1.setting.SystemNotification/save')->option(['real_name' => '保存通知设置']);
         //修改消息状态
         Route::put('notification/set_status/:type/:status/:id', 'v1.setting.SystemNotification/set_status')->option(['real_name' => '修改消息状态']);
+        //获取阿里云短信模板列表
+        Route::get('notification/sms_template_list', 'v1.setting.SystemNotification/getSmsTemplateList')->option(['real_name' => '获取阿里云短信模板列表']);
+        //获取阿里云短信签名列表
+        Route::get('notification/sms_sign_list', 'v1.setting.SystemNotification/getSmsSignList')->option(['real_name' => '获取阿里云短信签名列表']);
     })->option(['parent' => 'setting', 'cate_name' => '系统通知']);
 
     /** 协议版权 */
