@@ -42,7 +42,7 @@ class AllowOriginMiddleware implements MiddlewareInterface
         $header = Config::get('cookie.header');
         $origin = $request->header('origin');
 
-        if ($origin && ('' == $this->cookieDomain || strpos($origin, $this->cookieDomain ?? '')))
+        if ($origin && ('' == $this->cookieDomain || strpos($origin, $this->cookieDomain ?? '') !== false))
             $header['Access-Control-Allow-Origin'] = $origin;
         if ($request->method(true) == 'OPTIONS') {
             $response = Response::create('ok')->code(200)->header($header);

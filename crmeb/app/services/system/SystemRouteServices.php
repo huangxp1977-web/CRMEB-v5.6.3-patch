@@ -156,7 +156,7 @@ class SystemRouteServices extends BaseServices
         $path = $this->app->getRootPath() . 'app' . DS . $app . DS . 'route' . DS;
         $files = is_dir($path) ? scandir($path) : [];
         foreach ($files as $file) {
-            if (strpos($file, '.php')) {
+            if (strpos($file, '.php') !== false) {
                 include $path . $file;
             }
         }

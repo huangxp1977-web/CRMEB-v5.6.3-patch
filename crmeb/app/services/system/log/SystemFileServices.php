@@ -219,7 +219,7 @@ class SystemFileServices extends BaseServices
      */
     public function searchDir($path, &$data)
     {
-        if (is_dir($path) && !strpos($path, 'uploads')) {
+        if (is_dir($path) && strpos($path, 'uploads') === false) {
             $files = scandir($path);
             foreach ($files as $file) {
                 if ($file != '.' && $file != '..') {

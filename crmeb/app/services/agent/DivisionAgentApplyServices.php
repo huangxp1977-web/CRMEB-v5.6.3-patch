@@ -346,7 +346,7 @@ class DivisionAgentApplyServices extends BaseServices
     {
         $_empty = ['file_name' => '', 'ext_name' => $ex];
         if (!$url) return $_empty;
-        if (strpos($url, '?')) {
+        if (strpos($url, '?') !== false) {
             $_tarr = explode('?', $url);
             $url = trim($_tarr[0]);
         }

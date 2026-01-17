@@ -64,7 +64,7 @@ class AuthController extends BaseController
             $v = new Validate();
             $v->rule($validate);
         } else {
-            if (strpos($validate, '.')) {
+            if (strpos($validate, '.') !== false) {
                 // 支持场景
                 list($validate, $scene) = explode('.', $validate);
             }

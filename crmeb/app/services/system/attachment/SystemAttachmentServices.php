@@ -19,6 +19,20 @@ use crmeb\exceptions\AdminException;
 use crmeb\exceptions\ApiException;
 use crmeb\exceptions\UploadException;
 use app\services\other\UploadService;
+use app\services\product\product\StoreDescriptionServices;
+use app\services\product\product\StoreProductServices;
+use app\services\product\sku\StoreProductAttrValueServices;
+use app\services\product\product\StoreCategoryServices;
+use app\services\article\ArticleServices;
+use app\services\article\ArticleContentServices;
+use app\services\system\config\SystemGroupDataServices;
+use app\services\system\config\SystemConfigServices;
+use app\services\wechat\WechatQrcodeServices;
+use app\services\diy\DiyServices;
+use app\services\activity\seckill\StoreSeckillServices;
+use app\services\activity\bargain\StoreBargainServices;
+use app\services\activity\combination\StoreCombinationServices;
+use think\facade\Log;
 
 /**
  *
@@ -84,23 +98,35 @@ class SystemAttachmentServices extends BaseServices
     {
         $ids = explode(',', $ids);
         if (empty($ids)) throw new AdminException(400599);
+        
+        $errorMsgs = [];
+        
         foreach ($ids as $v) {
             $attinfo = $this->dao->get((int)$v);
             if ($attinfo) {
                 try {
+                    $this->checkIsUsed($attinfo);
+                    // 如果检查通过，执行物理文件删除
                     $upload = UploadService::init($attinfo['image_type']);
                     if ($attinfo['image_type'] == 1) {
-                        if (strpos($attinfo['att_dir'], '/') == 0) {
+                        if (strpos($attinfo['att_dir'], '/') === 0) {
                             $attinfo['att_dir'] = substr($attinfo['att_dir'], 1);
                         }
                         if ($attinfo['att_dir']) $upload->delete($attinfo['att_dir']);
                     } else {
                         if ($attinfo['name']) $upload->delete($attinfo['name']);
                     }
+                    $this->dao->delete((int)$v);
                 } catch (\Throwable $e) {
+                     // 捕获 checkIsUsed 抛出的业务异常或其他异常
+                     $errorMsgs[] = $e->getMessage();
                 }
-                $this->dao->delete((int)$v);
             }
+        }
+        
+        if (!empty($errorMsgs)) {
+            // 将所有错误信息合并抛出，使用 <br> 换行 (前端需开启 dangerouslyUseHTMLString)
+            throw new AdminException("以下素材正在使用中，无法删除：<br>" . implode("<br>", $errorMsgs));
         }
     }
 
@@ -387,6 +413,155 @@ class SystemAttachmentServices extends BaseServices
         }
         $this->del(implode(',', $attIds));
         return true;
+    }
+
+    /**
+     * 检查素材是否被使用
+     * @param $attinfo
+     */
+    private function checkIsUsed($attinfo)
+    {
+        $path = $attinfo['att_dir'];
+        // 统一把反斜杠转为正斜杠，避免Windows环境下的路径差异
+        $path = str_replace('\\', '/', $path);
+        
+        
+        // 获取文件名 (MD5+后缀，足够唯一)
+        $filename = basename($path);
+
+        /** @var StoreProductServices $productServices */
+        $productServices = app()->make(StoreProductServices::class);
+        /** @var StoreProductAttrValueServices $skuServices */
+        $skuServices = app()->make(StoreProductAttrValueServices::class);
+        /** @var StoreDescriptionServices $descriptionServices */
+        $descriptionServices = app()->make(StoreDescriptionServices::class);
+        /** @var StoreCategoryServices $categoryServices */
+        $categoryServices = app()->make(StoreCategoryServices::class);
+        /** @var ArticleServices $articleServices */
+        $articleServices = app()->make(ArticleServices::class);
+        /** @var ArticleContentServices $articleContentServices */
+        $articleContentServices = app()->make(ArticleContentServices::class);
+        /** @var SystemGroupDataServices $groupDataServices */
+        $groupDataServices = app()->make(SystemGroupDataServices::class);
+        /** @var SystemConfigServices $configServices */
+        $configServices = app()->make(SystemConfigServices::class);
+        /** @var WechatQrcodeServices $qrcodeServices */
+        $qrcodeServices = app()->make(WechatQrcodeServices::class);
+        /** @var DiyServices $diyServices */
+        $diyServices = app()->make(DiyServices::class);
+        /** @var StoreSeckillServices $seckillServices */
+        $seckillServices = app()->make(StoreSeckillServices::class);
+        /** @var StoreBargainServices $bargainServices */
+        $bargainServices = app()->make(StoreBargainServices::class);
+        /** @var StoreCombinationServices $combinationServices */
+        $combinationServices = app()->make(StoreCombinationServices::class);
+
+        // 1. 检查主图/视频 (以文件名结尾)
+        $product = $productServices->getOne([
+            ['image|video_link', 'like', "%$filename"], 
+            ['is_del', '=', 0]
+        ], 'store_name');
+        if ($product) throw new AdminException("【{$attinfo['real_name']}】被商品【" . $product['store_name'] . "】使用(主图/视频)");
+
+        // 2. 检查轮播图 (JSON字符串包含文件名)
+        $productSlider = $productServices->getOne([
+            ['slider_image', 'like', "%$filename%"],
+            ['is_del', '=', 0]
+        ], 'store_name');
+        if ($productSlider) throw new AdminException("【{$attinfo['real_name']}】被商品【" . $productSlider['store_name'] . "】使用(轮播图)");
+
+        // 3. 检查规格图 (以文件名结尾)
+        $sku = $skuServices->getOne([
+            ['image', 'like', "%$filename"]
+        ], 'product_id');
+        if ($sku) {
+            $productSku = $productServices->get($sku['product_id']);
+            if ($productSku && $productSku['is_del'] == 0) {
+                throw new AdminException("【{$attinfo['real_name']}】被商品【" . $productSku['store_name'] . "】使用(规格图)");
+            }
+        }
+        
+        // 4. 检查商品详情 (富文本)
+        $description = $descriptionServices->dao->getOne([
+            ['description', 'like', "%$filename%"]
+        ], 'product_id');
+        
+        if ($description) {
+            $productDesc = $productServices->get($description['product_id']);
+             if ($productDesc && $productDesc['is_del'] == 0) {
+                throw new AdminException("【{$attinfo['real_name']}】被商品【" . $productDesc['store_name'] . "】使用(商品详情)");
+            }
+        }
+
+        // 5. 检查商品分类 (图标/大图)
+        $category = $categoryServices->getOne([
+            ['pic|big_pic', 'like', "%$filename"],
+            ['is_show', '=', 1]
+        ], 'cate_name');
+        if ($category) throw new AdminException("【{$attinfo['real_name']}】被分类【" . $category['cate_name'] . "】使用");
+
+        // 6. 检查文章列表 (封面图)
+        $article = $articleServices->getOne([
+            ['image_input', 'like', "%$filename%"]
+        ], 'title');
+        if ($article) throw new AdminException("【{$attinfo['real_name']}】被文章【" . $article['title'] . "】使用(封面)");
+
+        // 7. 检查文章详情 (富文本)
+        $articleContent = $articleContentServices->dao->getOne([
+            ['content', 'like', "%$filename%"]
+        ], 'nid');
+        if ($articleContent) {
+            $art = $articleServices->get($articleContent['nid']);
+            if ($art) {
+                throw new AdminException("【{$attinfo['real_name']}】被文章【" . $art['title'] . "】使用(文章详情)");
+            }
+        }
+        
+        // 8. 检查组合数据 (Banner、金刚区导航等)
+        // 组合数据的值存储在 `value` 字段，是JSON字符串，直接模糊匹配
+        // 移除 status 检查，只要存在引用即阻止删除
+        $groupData = $groupDataServices->getOne([
+            ['value', 'like', "%$filename%"]
+        ]);
+        if ($groupData) throw new AdminException("【{$attinfo['real_name']}】被首页/配置【ID:{$groupData['gid']}】使用(Banner/导航等)");
+
+        // 9. 检查系统配置 (Logo、H5配置等)
+        $sysConfig = $configServices->getOne([
+            ['value', 'like', "%$filename%"]
+        ]);
+        if ($sysConfig) throw new AdminException("【{$attinfo['real_name']}】被系统配置【" . $sysConfig['menu_name'] . "】使用");
+
+        // 10. 检查渠道二维码
+        $qrcode = $qrcodeServices->getOne([
+            ['image', 'like', "%$filename%"]
+        ]);
+        if ($qrcode) throw new AdminException("【{$attinfo['real_name']}】被渠道码【" . $qrcode['name'] . "】使用");
+
+        // 10. 检查DIY装修 (页面装修数据)
+        // 移除 is_del 检查，即使是删除的页面（回收站）也保护图片
+        $diy = $diyServices->getOne([
+            ['value', 'like', "%$filename%"]
+        ], 'name');
+        if ($diy) throw new AdminException("【{$attinfo['real_name']}】被DIY装修【" . $diy['name'] . "】使用");
+
+        // 11. 检查秒杀活动
+        $seckill = $seckillServices->getOne([
+            ['image|images', 'like', "%$filename%"]
+        ], 'title');
+        if ($seckill) throw new AdminException("【{$attinfo['real_name']}】被秒杀活动【" . $seckill['title'] . "】使用");
+
+        // 12. 检查砍价活动
+        $bargain = $bargainServices->getOne([
+            ['image|images', 'like', "%$filename%"]
+        ], 'title');
+        if ($bargain) throw new AdminException("【{$attinfo['real_name']}】被砍价活动【" . $bargain['title'] . "】使用");
+
+        // 13. 检查拼团活动
+        $combination = $combinationServices->getOne([
+             ['image|images', 'like', "%$filename%"]
+        ], 'title');
+        if ($combination) throw new AdminException("【{$attinfo['real_name']}】被拼团活动【" . $combination['title'] . "】使用");
+        
     }
 }
 
