@@ -118,6 +118,13 @@ class OrderJob extends BaseJobs
         $userServices = app()->make(UserServices::class);
         $userInfo = $userServices->get($order['uid']);
         if ($userInfo) {
+            // 重新查询订单状态，确保订单未被回滚且确实已支付
+            /** @var StoreOrderServices $storeOrderServices */
+            $storeOrderServices = app()->make(StoreOrderServices::class);
+            $orderInfo = $storeOrderServices->get((int)$order['id']);
+            if (!$orderInfo || $orderInfo['paid'] == 0) {
+                return;
+            }
             $userInfo->pay_count = $userInfo->pay_count + 1;
             if (!$userInfo->is_promoter) {
                 /** @var StoreOrderServices $orderServices */
