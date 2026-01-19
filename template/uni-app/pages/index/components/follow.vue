@@ -1,6 +1,7 @@
 <template>
   <!-- 关注公众号 -->
-  <view>
+  <!-- 关注公众号 -->
+  <view v-if="!subscribe">
     <view :style="[followWrapStyle]">
       <view :style="[followStyle]" class="follow acea-row row-between-wrapper">
         <view class="picTxt acea-row row-middle">

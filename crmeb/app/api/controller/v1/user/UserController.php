@@ -185,10 +185,29 @@ class UserController
         if ($request->uid()) {
             /** @var WechatUserServices $wechatUserService */
             $wechatUserService = app()->make(WechatUserServices::class);
-            $subscribe = (bool)$wechatUserService->value(['uid' => $request->uid()], 'subscribe');
-            return app('json')->success(['subscribe' => $subscribe]);
+            // 必须指定 user_type 为 wechat，否则可能读取到小程序(routine)等其他类型的记录导致误判
+            $subscribe = (bool)$wechatUserService->value(['uid' => $request->uid(), 'user_type' => 'wechat'], 'subscribe');
+            
+            // 如果本地显示未关注，尝试去微信同步一次最新状态
+            if (!$subscribe) {
+                try {
+                    $openid = $wechatUserService->uidToOpenid((int)$request->uid());
+                    if ($openid) {
+                        $wechatUserService->syncWechatUser([$openid]);
+                        $subscribe = (bool)$wechatUserService->value(['uid' => $request->uid(), 'user_type' => 'wechat'], 'subscribe');
+                    }
+                } catch (\Throwable $e) {
+                    \think\facade\Log::error('WeChat Subscribe Sync Failed: ' . $e->getMessage());
+                }
+            }
+            return app('json')->success([
+                'subscribe' => $subscribe,
+                'debug_uid' => $request->uid(),
+                'debug_openid' => $openid ?? 'not_found',
+            ]);
         } else {
-            return app('json')->success(['subscribe' => true]);
+            // 未登录用户默认视为未关注，显示横幅
+            return app('json')->success(['subscribe' => false]);
         }
     }
 
