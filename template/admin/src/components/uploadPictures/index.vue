@@ -315,10 +315,12 @@ export default {
   },
   mounted() {
     if (this.isPage) {
-      let hang = parseInt((document.body.clientHeight - this.$refs.imgListBox.clientHeight - 325) / 180); //计算行数
-      let col = parseInt(this.$refs.imgListBox.clientWidth / 156); //计算列数
-      this.fileData.limit = col * hang; //计算分页数量
-      this.picmargin = parseInt(this.$refs.imgListBox.clientWidth - col * 146) / (2 * col) + 'px'; //平均分布计算margin距离
+      // 修复动态计算逻辑：只减去固定头部/底部高度(约300px)，不再减去容器自身高度
+      let hang = parseInt((document.body.clientHeight - 300) / 125); // 调整行高除数 (原140)
+      let col = parseInt(this.$refs.imgListBox.clientWidth / 108); // 调整列宽除数 (原125)
+      let limit = col * hang;
+      this.fileData.limit = limit < 18 ? 18 : limit; // 强制保底 18 个
+      this.picmargin = parseInt(this.$refs.imgListBox.clientWidth - col * 100) / (2 * col) + 'px'; // 调整Margin计算 (原115)
     }
     this.getToken();
     this.getList();
@@ -455,7 +457,10 @@ export default {
           this.checkPicList = [];
         })
         .catch((res) => {
-          this.$message.error(res.msg);
+          this.$message.error({
+            message: res.msg,
+            dangerouslyUseHTMLString: true
+          });
         });
     },
     // 删除图片
@@ -476,7 +481,10 @@ export default {
           this.initData();
         })
         .catch((res) => {
-          this.$message.error(res.msg);
+          this.$message.error({
+            message: res.msg,
+            dangerouslyUseHTMLString: true
+          });
         });
     },
     initData() {
@@ -818,20 +826,20 @@ export default {
 }
 .pictrueList_pic {
   position: relative;
-  width: 146px;
+  width: 100px; // 原 115px
   cursor: pointer;
   // margin-right: 20px !important;
   .img {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 146px;
-    height: 146px;
+    width: 100px; // 原 115px
+    height: 100px; // 原 115px
     background-color: rgb(248, 248, 248);
     padding: 3px;
     img {
-      max-width: 140px;
-      max-height: 140px;
+      max-width: 96px; // 原 110px
+      max-height: 96px; // 原 110px
       // object-fit: cover;
     }
   }
