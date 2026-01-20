@@ -16,7 +16,6 @@ namespace crmeb\services\easywechat\v3pay;
 
 use crmeb\exceptions\PayException;
 use crmeb\services\wechat\Payment;
-use EasyWeChat\Payment\Order;
 
 /**
  * v3支付
@@ -55,7 +54,7 @@ class PayClient extends BaseClient
     /**
      * @var string
      */
-    protected $type = Order::JSAPI;
+    protected $type = 'JSAPI';
 
     /**
      * @param string $type
@@ -80,7 +79,7 @@ class PayClient extends BaseClient
      */
     public function jsapiPay(string $openid, string $outTradeNo, string $total, string $description, string $attach)
     {
-        $appId = $this->app['config']['wechat']['appid'];
+        $appId = $this->app->getConfig()['wechat']['appid'];
         $res = $this->pay('jsapi', $appId, $outTradeNo, $total, $description, $attach, ['openid' => $openid]);
         return $this->configForJSSDKPayment($appId, $res['prepay_id']);
     }
@@ -95,7 +94,7 @@ class PayClient extends BaseClient
      */
     public function miniprogPay(string $openid, string $outTradeNo, string $total, string $description, string $attach)
     {
-        $appId = $this->app['config']['miniprog']['appid'];
+        $appId = $this->app->getConfig()['miniprog']['appid'];
         $res = $this->pay('jsapi', $appId, $outTradeNo, $total, $description, $attach, ['openid' => $openid]);
         return $this->configForJSSDKPayment($appId, $res['prepay_id']);
     }
@@ -110,7 +109,7 @@ class PayClient extends BaseClient
      */
     public function appPay(string $outTradeNo, string $total, string $description, string $attach)
     {
-        $res = $this->pay('app', $this->app['config']['app']['appid'], $outTradeNo, $total, $description, $attach);
+        $res = $this->pay('app', $this->app->getConfig()['app']['appid'], $outTradeNo, $total, $description, $attach);
         return $this->configForAppPayment($res['prepay_id']);
     }
 
@@ -124,7 +123,7 @@ class PayClient extends BaseClient
      */
     public function nativePay(string $outTradeNo, string $total, string $description, string $attach)
     {
-        return $this->pay('native', $this->app['config']['web']['appid'], $outTradeNo, $total, $description, $attach);
+        return $this->pay('native', $this->app->getConfig()['web']['appid'], $outTradeNo, $total, $description, $attach);
     }
 
     /**
@@ -137,7 +136,7 @@ class PayClient extends BaseClient
      */
     public function h5Pay(string $outTradeNo, string $total, string $description, string $attach)
     {
-        return $this->pay('h5', $this->app['config']['wechat']['appid'], $outTradeNo, $total, $description, $attach);
+        return $this->pay('h5', $this->app->getConfig()['wechat']['appid'], $outTradeNo, $total, $description, $attach);
     }
 
     /**
@@ -157,11 +156,11 @@ class PayClient extends BaseClient
 
         $data = [
             'appid' => $appid,
-            'mchid' => $this->app['config']['v3_payment']['mchid'],
+            'mchid' => $this->app->getConfig()['v3_payment']['mchid'],
             'out_trade_no' => $outTradeNo,
             'attach' => $attach,
             'description' => $description,
-            'notify_url' => $this->app['config']['v3_payment']['notify_url'],
+            'notify_url' => $this->app->getConfig()['v3_payment']['notify_url'],
             'amount' => [
                 'total' => $totalFee,
                 'currency' => 'CNY'
@@ -173,14 +172,14 @@ class PayClient extends BaseClient
         }
 
         //服务商支付模式
-        if ($this->app['config']['v3_payment']['mer_type']) {
+        if ($this->app->getConfig()['v3_payment']['mer_type']) {
 
             $mchid = $data['mchid'];
             $appid = $data['appid'];
             unset($data['mchid'], $data['appid'], $data['payer']);
-            $data['sp_appid'] = $this->app['config']['v3_payment']['sp_appid'];
+            $data['sp_appid'] = $this->app->getConfig()['v3_payment']['sp_appid'];
             $data['sp_mchid'] = $mchid;
-            $data['sub_mchid'] = $this->app['config']['v3_payment']['sub_mch_id'];
+            $data['sub_mchid'] = $this->app->getConfig()['v3_payment']['sub_mch_id'];
             if (!empty($payer['openid'])) {
                 $data['payer']['sub_openid'] = $payer['openid'];
                 $data['sub_appid'] = $appid;
@@ -280,12 +279,12 @@ class PayClient extends BaseClient
         $amount = (int)bcmul($amount, 100, 0);
 
         $appid = null;
-        if ($this->type === Order::JSAPI) {
-            $appid = $this->app['config']['wechat']['appid'];
+        if ($this->type === 'JSAPI') {
+            $appid = $this->app->getConfig()['wechat']['appid'];
         } else if ($this->type === 'mini') {
-            $appid = $this->app['config']['miniprog']['appid'];
-        } else if ($this->type === Order::APP) {
-            $appid = $this->app['config']['app']['appid'];
+            $appid = $this->app->getConfig()['miniprog']['appid'];
+        } else if ($this->type === 'APP') {
+            $appid = $this->app->getConfig()['app']['appid'];
         }
 
         if (!$appid) {
@@ -319,12 +318,12 @@ class PayClient extends BaseClient
     public function transferBills($order_id, $transfer_scene_id, $openid, $user_name, $transfer_amount, $transfer_remark, $notify_url, $user_recv_perception, $transfer_scene_report_infos)
     {
         $appid = '';
-        if ($this->type === Order::JSAPI) {
-            $appid = $this->app['config']['wechat']['appid'];
+        if ($this->type === 'JSAPI') {
+            $appid = $this->app->getConfig()['wechat']['appid'];
         } else if ($this->type === 'mini') {
-            $appid = $this->app['config']['miniprog']['appid'];
-        } else if ($this->type === Order::APP) {
-            $appid = $this->app['config']['app']['appid'];
+            $appid = $this->app->getConfig()['miniprog']['appid'];
+        } else if ($this->type === 'APP') {
+            $appid = $this->app->getConfig()['app']['appid'];
         }
         if ($appid === '') {
             throw new PayException('暂时只支持微信用户、小程序用户、APP微信登录用户提现');
@@ -385,7 +384,7 @@ class PayClient extends BaseClient
         REFUND_SOURCE_UNSETTLED_FUNDS---未结算资金退款（默认使用未结算资金退款）
         REFUND_SOURCE_RECHARGE_FUNDS---可用余额退款
         */
-        $refundAccount = $opt['refund_account'] ?? 'AVAILABLE';
+        $refundAccount = $options['refund_account'] ?? 'AVAILABLE';
 
         $data = [
             'transaction_id' => $outTradeNo,
@@ -403,9 +402,9 @@ class PayClient extends BaseClient
         }
 
         //服务商支付退款
-        $merType = $this->app['config']['v3_payment']['mer_type'];
+        $merType = $this->app->getConfig()['v3_payment']['mer_type'];
         if ($merType) {
-            $data['sub_mchid'] = $this->app['config']['v3_payment']['sub_mch_id'];
+            $data['sub_mchid'] = $this->app->getConfig()['v3_payment']['sub_mch_id'];
         }
 
         $res = $this->request(self::API_REFUND_URL, 'POST', ['json' => $data]);
@@ -477,8 +476,8 @@ class PayClient extends BaseClient
     public function configForAppPayment(string $prepayId): array
     {
         $params = [
-            'appid' => $this->app['config']['app']['appid'],
-            'partnerid' => $this->app['config']['v3_payment']['mchid'],
+            'appid' => $this->app->getConfig()['app']['appid'],
+            'partnerid' => $this->app->getConfig()['v3_payment']['mchid'],
             'prepayid' => $prepayId,
             'noncestr' => uniqid(),
             'timestamp' => time(),

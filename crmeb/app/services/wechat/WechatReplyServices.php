@@ -323,7 +323,9 @@ class WechatReplyServices extends BaseServices
             $services->replyTransferService($key, $openId);
             return WechatService::transfer();
         }
-        return $this->replyDataByMessage($res->toArray());
+        // 兼容返回对象或数组的情况
+        $resData = is_object($res) ? $res->toArray() : $res;
+        return $this->replyDataByMessage($resData);
     }
 
     /**

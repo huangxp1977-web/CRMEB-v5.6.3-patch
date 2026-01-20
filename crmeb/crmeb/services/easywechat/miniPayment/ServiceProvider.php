@@ -1,5 +1,4 @@
 <?php
-
 /*
  * This file is part of the overtrue/wechat.
  *
@@ -7,46 +6,62 @@
  *
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
+ * 
+ * Modified: Refactored for EasyWeChat 6.x - Removed Pimple dependency
  */
 
 namespace crmeb\services\easywechat\miniPayment;
 
-use EasyWeChat\Payment\Merchant;
-use Pimple\Container;
-use Pimple\ServiceProviderInterface;
-use EasyWeChat\MiniProgram\AccessToken;
+use crmeb\services\easywechat\Application;
 
 /**
- * Class ServiceProvider.
+ * 小程序支付 ServiceProvider
+ * 重构后不再依赖 Pimple
  *
- * @author mingyoung <mingyoungcheung@gmail.com>
+ * Class ServiceProvider
+ * @package crmeb\services\easywechat\miniPayment
  */
-class ServiceProvider implements ServiceProviderInterface
+class ServiceProvider
 {
     /**
-     * {@inheritdoc}.
+     * @var Application
      */
-    public function register(Container $pimple)
+    protected $app;
+
+    /**
+     * @var WeChatClient
+     */
+    protected $client;
+
+    /**
+     * ServiceProvider constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
     {
-        $pimple['merchant'] = function ($pimple) {
-            $config = array_merge(
-                ['app_id' => $pimple['config']['app_id']],
-                $pimple['config']->get('payment', [])
-            );
+        $this->app = $app;
+    }
 
-            return new Merchant($config);
-        };
+    /**
+     * 获取微信支付客户端
+     * @return WeChatClient
+     */
+    public function getClient(): WeChatClient
+    {
+        if (!$this->client) {
+            $this->client = new WeChatClient($this->app);
+        }
+        return $this->client;
+    }
 
-        $pimple['mini_program.access_token'] = function ($pimple) {
-            return new AccessToken(
-                $pimple['config']['mini_program']['app_id'],
-                $pimple['config']['mini_program']['secret'],
-                $pimple['cache']
-            );
-        };
-
-        $pimple['minipay'] = function ($pimple) {
-            return new WeChatClient($pimple['mini_program.access_token'],$pimple['merchant']);
-        };
+    /**
+     * 魔术方法，代理到 WeChatClient
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return $this->getClient()->{$name}(...$arguments);
     }
 }

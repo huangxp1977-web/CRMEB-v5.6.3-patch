@@ -19,8 +19,6 @@ use crmeb\services\pay\PayInterface;
 use crmeb\services\app\MiniProgramService;
 use crmeb\services\app\WechatService;
 use crmeb\services\SystemConfigService;
-use EasyWeChat\Payment\API;
-use EasyWeChat\Payment\Order;
 use EasyWeChat\Support\Collection;
 use Psr\Http\Message\ResponseInterface;
 
@@ -52,11 +50,11 @@ class WechatPay extends BasePay implements PayInterface
         $this->authSetPayType();
 
         switch ($this->payType) {
-            case Order::NATIVE:
+            case 'NATIVE':
                 return WechatService::nativePay(null, $orderId, $totalFee, $attach, $body, $detail);
-            case Order::APP:
+            case 'APP':
                 return WechatService::appPay($options['openid'], $orderId, $totalFee, $attach, $body, $detail);
-            case Order::JSAPI:
+            case 'JSAPI':
                 if (empty($options['openid'])) {
                     throw new PayException('缺少openid');
                 }
@@ -136,7 +134,7 @@ class WechatPay extends BasePay implements PayInterface
      */
     public function queryRefund(string $outTradeNo, string $outRequestNo, array $other = [])
     {
-        return WechatService::queryRefund($outTradeNo, $other['type'] ?? API::OUT_TRADE_NO);
+        return WechatService::queryRefund($outTradeNo, $other['type'] ?? 'out_trade_no');
     }
 
     /**

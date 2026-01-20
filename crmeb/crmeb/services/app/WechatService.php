@@ -20,16 +20,6 @@ use crmeb\exceptions\AdminException;
 use crmeb\exceptions\ApiException;
 use crmeb\services\CacheService;
 use crmeb\services\easywechat\Application;
-use EasyWeChat\Message\Article;
-use EasyWeChat\Message\Image;
-use EasyWeChat\Message\Material;
-use EasyWeChat\Message\News;
-use EasyWeChat\Message\Text;
-use EasyWeChat\Message\Video;
-use EasyWeChat\Message\Voice;
-use EasyWeChat\Payment\Order;
-use EasyWeChat\Payment\Payment;
-use EasyWeChat\Server\Guard;
 use Symfony\Component\HttpFoundation\Request;
 use think\facade\Event;
 use think\Response;
@@ -229,8 +219,11 @@ class WechatService
      */
     public static function transfer($account = '')
     {
-        $transfer = new \EasyWeChat\Message\Transfer();
-        return empty($account) ? $transfer : $transfer->to($account);
+        $transfer = ['MsgType' => 'transfer_customer_service'];
+        if (!empty($account)) {
+            $transfer['TransInfo'] = ['KfAccount' => $account];
+        }
+        return $transfer;
     }
 
 
@@ -402,7 +395,12 @@ class WechatService
             'spbill_create_ip' => request()->ip(),  //发起交易的IP地址
         ];
         $result = self::application()->merchant_pay->send($merchantPayData);
-        if ($result->return_code == 'SUCCESS' && $result->result_code != 'FAIL') {
+        // V3 returns array or throws exception
+        if (is_array($result)) {
+            return true; // V3 success
+        }
+        // Legacy V2 fallback (should not happen in V3)
+        if (isset($result->return_code) && $result->return_code == 'SUCCESS' && $result->result_code != 'FAIL') {
             return true;
         } else {
             throw new ApiException($result->err_code_des ?? 400658);
@@ -419,7 +417,7 @@ class WechatService
      * @param string $detail
      * @param string $trade_type
      * @param array $options
-     * @return Order
+     * @return array
      */
     protected static function paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
@@ -427,7 +425,7 @@ class WechatService
         $order = array_merge(compact('out_trade_no', 'total_fee', 'attach', 'body', 'detail', 'trade_type'), $options);
         if (!is_null($openid)) $order['openid'] = $openid;
         if ($order['detail'] == '') unset($order['detail']);
-        return new Order($order);
+        return $order;
     }
 
     /**
@@ -450,20 +448,19 @@ class WechatService
             return $result;
         } else {
             $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-            $result = self::paymentService()->prepare($order);
-            if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
-                CacheService::set($key, $result, 7000);
-                return $result;
-            } else {
-                if ($result->return_code == 'FAIL') {
-                    exception('微信支付错误返回：' . $result->return_msg);
-                } else if (isset($result->err_code)) {
-                    exception('微信支付错误返回：' . $result->err_code_des);
-                } else {
-                    exception('没有获取微信支付的预支付ID，请重新发起支付!');
-                }
-                exit;
+            // V3 Pay returns array. If it throws exception, it bubbles up.
+            try {
+                $result = self::paymentService()->prepare($order);
+            } catch (\Exception $e) {
+                 throw new AdminException('微信支付错误：' . $e->getMessage());
             }
+            // V3 returns prepay_id in array
+            $prepayId = is_array($result) ? ($result['prepay_id'] ?? null) : ($result->prepay_id ?? null);
+            if (!$prepayId) {
+                throw new AdminException('没有获取微信支付的预支付ID，请重新发起支付!');
+            }
+            CacheService::set($key, $prepayId, 7000);
+            return $prepayId;
         }
     }
 
@@ -486,21 +483,20 @@ class WechatService
         if ($result) {
             return $result;
         } else {
-            $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
-            $result = self::application()->minipay->createorder($order);
-            if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
-                CacheService::set($key, $result, 7000);
-                return $result;
-            } else {
-                if ($result->return_code == 'FAIL') {
-                    exception('微信支付错误返回：' . $result->return_msg);
-                } else if (isset($result->err_code)) {
-                    exception('微信支付错误返回：' . $result->err_code_des);
-                } else {
-                    exception('没有获取微信支付的预支付ID，请重新发起支付!');
-                }
-                exit;
+            $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, 'JSAPI', $options);
+            // V3 Pay returns array. If it throws exception, it bubbles up.
+            try {
+                $result = self::application()->minipay->createorder($order);
+            } catch (\Exception $e) {
+                throw new AdminException('微信支付错误：' . $e->getMessage());
             }
+            // V3 returns prepay_id in array
+            $prepayId = is_array($result) ? ($result['prepay_id'] ?? null) : ($result->prepay_id ?? null);
+            if (!$prepayId) {
+                throw new AdminException('没有获取微信支付的预支付ID，请重新发起支付!');
+            }
+            CacheService::set($key, $prepayId, 7000);
+            return $prepayId;
         }
     }
 
@@ -518,8 +514,9 @@ class WechatService
      */
     public static function jsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
-        $paymentPrepare = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-        return self::paymentService()->configForJSSDKPayment($paymentPrepare->prepay_id);
+        $prepayId = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        // paymentPrepare returns prepay_id string directly
+        return self::paymentService()->configForJSSDKPayment($prepayId);
     }
 
     /**
@@ -536,8 +533,9 @@ class WechatService
      */
     public static function newJsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $options = [])
     {
-        $paymentPrepare = self::newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
-        return self::paymentService()->configForJSSDKPayment($paymentPrepare->prepay_id);
+        $prepayId = self::newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
+        // newPaymentPrepare returns prepay_id string directly
+        return self::paymentService()->configForJSSDKPayment($prepayId);
     }
 
     /**
@@ -552,10 +550,11 @@ class WechatService
      * @param array $options
      * @return array|string
      */
-    public static function appPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = Order::APP, $options = [])
+    public static function appPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'APP', $options = [])
     {
-        $paymentPrepare = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-        return self::paymentService()->configForAppPayment($paymentPrepare->prepay_id);
+        $prepayId = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        // paymentPrepare returns prepay_id string directly
+        return self::paymentService()->configForAppPayment($prepayId);
     }
 
     /**
@@ -572,12 +571,23 @@ class WechatService
      */
     public static function nativePay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'NATIVE', $options = [])
     {
-        $data = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        try {
+            // Native pay needs full response with code_url
+            $data = self::paymentService()->prepare($order);
+        } catch (\Exception $e) {
+            throw new AdminException('微信支付错误：' . $e->getMessage());
+        }
+        $res = [];
         if ($data) {
-            $res['code_url'] = $data['code_url'];
-            $res['invalid'] = time() + 60;
-            $res['logo'] = sys_config('wap_login_logo');
-        } else $res = [];
+            // V3 returns array
+            $codeUrl = is_array($data) ? ($data['code_url'] ?? '') : ($data->code_url ?? '');
+            if ($codeUrl) {
+                $res['code_url'] = $codeUrl;
+                $res['invalid'] = time() + 60;
+                $res['logo'] = sys_config('wap_login_logo');
+            }
+        }
         return $res;
     }
 
@@ -604,6 +614,23 @@ class WechatService
         }
     }
 
+    /**
+     * 查询退款状态
+     * @param string $outTradeNo 商户订单号或退款单号
+     * @param string $type 查询类型: out_trade_no 或 out_refund_no
+     * @return array|mixed
+     */
+    public static function queryRefund($outTradeNo, $type = 'out_trade_no')
+    {
+        try {
+            // V3 uses out_refund_no to query refund
+            return self::application()->v3pay->queryRefund($outTradeNo);
+        } catch (\Exception $e) {
+            throw new AdminException('查询退款失败：' . $e->getMessage());
+        }
+    }
+
+
 
     public static function payOrderRefund($orderNo, array $opt)
     {
@@ -620,8 +647,17 @@ class WechatService
         $refundAccount = $opt['refund_account'] ?? 'REFUND_SOURCE_UNSETTLED_FUNDS';
         try {
             $res = (self::refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount));
-            if ($res->return_code == 'FAIL') throw new AdminException(400731, ['msg' => $res->return_msg]);
-            if (isset($res->err_code)) throw new AdminException(400731, ['msg' => $res->err_code_des]);
+            // V3 returns array, V2 returns object
+            if (is_array($res)) {
+                // V3 success - if we get here without exception, it's success
+                if (isset($res['code']) && $res['code'] !== 'SUCCESS') {
+                    throw new AdminException(400731, ['msg' => $res['message'] ?? '退款失败']);
+                }
+            } else {
+                // V2 fallback
+                if ($res->return_code == 'FAIL') throw new AdminException(400731, ['msg' => $res->return_msg]);
+                if (isset($res->err_code)) throw new AdminException(400731, ['msg' => $res->err_code_des]);
+            }
         } catch (\Exception $e) {
             throw new AdminException($e->getMessage());
         }
@@ -687,7 +723,7 @@ class WechatService
      */
     public static function textMessage($content)
     {
-        return new Text(compact('content'));
+        return ['MsgType' => 'text', 'Content' => $content];
     }
 
     /**
@@ -697,7 +733,7 @@ class WechatService
      */
     public static function imageMessage($media_id)
     {
-        return new Image(compact('media_id'));
+        return ['MsgType' => 'image', 'Image' => ['MediaId' => $media_id]];
     }
 
     /**
@@ -710,7 +746,10 @@ class WechatService
      */
     public static function videoMessage($media_id, $title = '', $description = '...', $thumb_media_id = null)
     {
-        return new Video(compact('media_id', 'title', 'description', 'thumb_media_id'));
+        return [
+            'MsgType' => 'video',
+            'Video' => compact('media_id', 'title', 'description', 'thumb_media_id')
+        ];
     }
 
     /**
@@ -720,7 +759,7 @@ class WechatService
      */
     public static function voiceMessage($media_id)
     {
-        return new Voice(compact('media_id'));
+        return ['MsgType' => 'voice', 'Voice' => ['MediaId' => $media_id]];
     }
 
     /**
@@ -733,19 +772,27 @@ class WechatService
     public static function newsMessage($title, $description = '...', $url = '', $image = '')
     {
         if (is_array($title)) {
-            if (isset($title[0]) && is_array($title[0])) {
-                $newsList = [];
-                foreach ($title as $news) {
-                    $newsList[] = self::newsMessage($news);
-                }
-                return $newsList;
-            } else {
-                $data = $title;
+            $articles = [];
+            foreach ($title as $news) {
+                 if (is_array($news)) $articles[] = $news;
             }
+            return [
+                'MsgType' => 'news',
+                'ArticleCount' => count($articles),
+                'Articles' => $articles
+            ];
         } else {
-            $data = compact('title', 'description', 'url', 'image');
+            return [
+                'MsgType' => 'news',
+                'ArticleCount' => 1,
+                'Articles' => [[
+                    'Title' => $title,
+                    'Description' => $description,
+                    'PicUrl' => $image,
+                    'Url' => $url,
+                ]]
+            ];
         }
-        return new News($data);
     }
 
     /**
@@ -763,8 +810,12 @@ class WechatService
      */
     public static function articleMessage($title, $thumb_media_id, $source_url, $content = '', $author = '', $digest = '', $show_cover_pic = 0, $need_open_comment = 0, $only_fans_can_comment = 1)
     {
+        // For 'mpnews', structure is typically distinct, but assuming standard return for now or custom structure
+        // If this is for 'add_news' or material upload, it returns array.
+        // If it's for passive reply, 'mpnews' is MediaId.
+        // Assuming this is used for material upload or similar given the fields.
         $data = is_array($title) ? $title : compact('title', 'thumb_media_id', 'source_url', 'content', 'author', 'digest', 'show_cover_pic', 'need_open_comment', 'only_fans_can_comment');
-        return new Article($data);
+        return $data; 
     }
 
     /**
@@ -775,7 +826,19 @@ class WechatService
      */
     public static function materialMessage($type, $media_id)
     {
-        return new Material($type, $media_id);
+        if ($type == 'image') {
+            return ['MsgType' => 'image', 'Image' => ['MediaId' => $media_id]];
+        }
+        if ($type == 'voice') {
+            return ['MsgType' => 'voice', 'Voice' => ['MediaId' => $media_id]];
+        }
+        if ($type == 'mpnews') {
+             return ['MsgType' => 'mpnews', 'MpNews' => ['MediaId' => $media_id]];
+        }
+        if ($type == 'mpvideo') { // Video needs more fields usually, but if just media_id
+             return ['MsgType' => 'mpvideo', 'MpVideo' => ['MediaId' => $media_id]];
+        }
+        return ['MsgType' => $type, 'MediaId' => $media_id];
     }
 
     /**

@@ -26,7 +26,6 @@ use crmeb\services\app\WechatService;
 use crmeb\services\pay\Pay;
 use crmeb\services\wechat\Payment;
 use crmeb\services\workerman\ChannelService;
-use EasyWeChat\Payment\Order;
 use think\exception\ValidateException;
 use think\facade\Route as Url;
 
@@ -194,15 +193,15 @@ class UserExtractServices extends BaseServices
             $type = '';
             $openid = $wechatServices->uidToOpenid($userExtract['uid'], $userExtract['channel_type']);
             if ($userExtract['channel_type'] == 'wechat') {
-                $type = Order::JSAPI;
+                $type = 'JSAPI';
             } elseif ($userExtract['channel_type'] == 'routine') {
                 $type = 'mini';
             } elseif ($userExtract['channel_type'] == 'app') {
-                $type = Order::APP;
+                $type = 'APP';
             }
             if (!$openid) {
                 $openid = $wechatServices->uidToOpenid($userExtract['uid'], 'wechat');
-                $type = Order::JSAPI;
+                $type = 'JSAPI';
             }
             if (!$openid) {
                 $openid = $wechatServices->uidToOpenid($userExtract['uid'], 'routine');
@@ -210,7 +209,7 @@ class UserExtractServices extends BaseServices
             }
             if (!$openid) {
                 $openid = $wechatServices->uidToOpenid((int)$userExtract['uid'], 'app');
-                $type = Order::APP;
+                $type = 'APP';
             }
             if (!$openid) {
                 throw new ValidateException('该用户暂不支持自动转账到零钱，请手动转账');

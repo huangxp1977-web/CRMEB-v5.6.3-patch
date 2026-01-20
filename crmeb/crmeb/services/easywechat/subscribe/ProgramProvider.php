@@ -7,32 +7,60 @@
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
 // | Author: CRMEB Team <admin@crmeb.com>
+// | Modified: Refactored for EasyWeChat 6.x - Removed Pimple dependency
 // +----------------------------------------------------------------------
 namespace crmeb\services\easywechat\subscribe;
 
-use EasyWeChat\MiniProgram\AccessToken;
-use Pimple\Container;
-use Pimple\ServiceProviderInterface;
+use crmeb\services\easywechat\Application;
 
 /**
- * 注册订阅消息
+ * 注册订阅消息 Provider
+ * 重构后不再依赖 Pimple
+ * 
  * Class ProgramProvider
- * @package crmeb\utils
+ * @package crmeb\services\easywechat\subscribe
  */
-class ProgramProvider implements ServiceProviderInterface
+class ProgramProvider
 {
-    public function register(Container $pimple)
-    {
-        $pimple['mini_program.access_token'] = function ($pimple) {
-            return new AccessToken(
-                $pimple['config']['mini_program']['app_id'],
-                $pimple['config']['mini_program']['secret'],
-                $pimple['cache']
-            );
-        };
+    /**
+     * @var Application
+     */
+    protected $app;
 
-        $pimple['mini_program.now_notice'] = function ($pimple) {
-            return new ProgramSubscribe($pimple['mini_program.access_token']);
-        };
+    /**
+     * @var ProgramSubscribe
+     */
+    protected $subscribe;
+
+    /**
+     * ProgramProvider constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
+    {
+        $this->app = $app;
+    }
+
+    /**
+     * 获取订阅消息实例
+     * @return ProgramSubscribe
+     */
+    public function getSubscribe(): ProgramSubscribe
+    {
+        if (!$this->subscribe) {
+            $this->subscribe = new ProgramSubscribe($this->app);
+        }
+        return $this->subscribe;
+    }
+
+    /**
+     * 魔术方法，代理到 ProgramSubscribe
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return $this->getSubscribe()->{$name}(...$arguments);
     }
 }

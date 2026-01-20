@@ -47,10 +47,6 @@ class SystemConfigTabServices extends BaseServices
     public function getConfigTab(int $pid)
     {
         $list = $this->dao->getConfigTabAll(['status' => 1, 'pid' => $pid], ['id', 'id as value', 'title as label', 'pid', 'icon', 'type'], $pid ? [] : [['type', '=', '0']]);
-        // MODIFY: Filter out Yihaotong tabs
-        $list = array_filter($list, function($item) {
-            return strpos($item['label'], '一号通') === false;
-        });
         return get_tree_children($list);
     }
 

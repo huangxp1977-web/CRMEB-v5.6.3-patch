@@ -7,18 +7,26 @@
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
 // | Author: CRMEB Team <admin@crmeb.com>
+// | Modified: Refactored for EasyWeChat 6.x compatibility
 // +----------------------------------------------------------------------
+
 namespace crmeb\services\easywechat\wechatlive;
 
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
+use crmeb\services\easywechat\Application;
 
 /**
+ * 微信直播
+ * 重构后不再依赖 EasyWeChat 4.x 的 AbstractAPI
+ *
  * Class ProgramWechatLive
  * @package crmeb\services\wechatlive
  */
-class ProgramWechatLive extends AbstractAPI
+class ProgramWechatLive
 {
+    /**
+     * @var Application
+     */
+    protected $app;
 
     /**
      * 获取直播列表信息
@@ -65,6 +73,7 @@ class ProgramWechatLive extends AbstractAPI
      * 获取成员列表
      */
     const ROLE_LIST = 'https://api.weixin.qq.com/wxaapi/broadcast/role/getrolelist';
+    
     /**
      * 添加直播间参数
      * @var array
@@ -91,19 +100,18 @@ class ProgramWechatLive extends AbstractAPI
 
     /**
      * ProgramWechatLive constructor.
-     * @param AccessToken $accessToken
+     * @param Application $app
      */
-    public function __construct(AccessToken $accessToken)
+    public function __construct(Application $app)
     {
-        parent::__construct($accessToken);
+        $this->app = $app;
     }
 
     /**
      * 获取直播间列表
      * @param int $page
      * @param int $limit
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function getLiveInfo(int $page = 1, int $limit = 10)
     {
@@ -112,7 +120,7 @@ class ProgramWechatLive extends AbstractAPI
             'start' => $page,
             'limit' => $limit
         ];
-        return $this->parseJSON('json', [self::API_WECHAT_LIVE, $params]);
+        return $this->request('POST', self::API_WECHAT_LIVE, $params);
     }
 
     /**
@@ -120,8 +128,7 @@ class ProgramWechatLive extends AbstractAPI
      * @param int $room_id
      * @param int $page
      * @param int $limit
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function getLivePlayback(int $room_id, int $page = 1, int $limit = 10)
     {
@@ -132,27 +139,25 @@ class ProgramWechatLive extends AbstractAPI
             'start' => $page,
             'limit' => $limit
         ];
-        return $this->parseJSON('json', [self::API_WECHAT_LIVE, $params]);
+        return $this->request('POST', self::API_WECHAT_LIVE, $params);
     }
 
     /**
      * 创建直播间
-     * @param $data
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @param array $data
+     * @return array
      */
     public function createRoom(array $data)
     {
         $params = array_merge($this->create_data, $data);
-        return $this->parseJSON('json', [self::CREATE_LIVE_ROOM, $params]);
+        return $this->request('POST', self::CREATE_LIVE_ROOM, $params);
     }
 
     /**
      * 直播间导入商品
      * @param int $room_id
-     * @param $ids
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @param array $ids
+     * @return array
      */
     public function roomAddGoods(int $room_id, $ids)
     {
@@ -160,16 +165,15 @@ class ProgramWechatLive extends AbstractAPI
             'ids' => $ids,
             'roomId' => $room_id
         ];
-        return $this->parseJSON('json', [self::LIVE_ROOM_ADD_GOODS, $params]);
+        return $this->request('POST', self::LIVE_ROOM_ADD_GOODS, $params);
     }
 
     /**
      * 获取商品列表
-     * @param $status
+     * @param int $status
      * @param int $page
      * @param int $limit
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function getGoodsList($status, int $page = 0, $limit = 30)
     {
@@ -178,21 +182,20 @@ class ProgramWechatLive extends AbstractAPI
             'limit' => $limit,
             'status' => $status
         ];
-        return $this->parseJSON('json', [self::GOODS_LIST, $params]);
+        return $this->request('POST', self::GOODS_LIST, $params);
     }
 
     /**
      * 获取商品详情
-     * @param $ids
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @param array $ids
+     * @return array
      */
     public function getGooodsInfo($ids)
     {
         $params = [
             'goods_ids' => $ids
         ];
-        return $this->parseJSON('json', [self::GOODS_INFO, $params]);
+        return $this->request('POST', self::GOODS_INFO, $params);
     }
 
     /**
@@ -201,10 +204,9 @@ class ProgramWechatLive extends AbstractAPI
      * @param string $name
      * @param int $priceType
      * @param string $url
-     * @param $price
+     * @param float $price
      * @param string $price2
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function addGoods(string $coverImgUrl, string $name, int $priceType, string $url, $price, $price2 = '')
     {
@@ -216,15 +218,14 @@ class ProgramWechatLive extends AbstractAPI
             'url' => $url
         ]];
         if ($priceType != 1) $params['goodsInfo']['price2'] = $price2;
-        return $this->parseJSON('json', [self::GOODS_ADD, $params]);
+        return $this->request('POST', self::GOODS_ADD, $params);
     }
 
     /**
      * 商品撤回审核
      * @param int $goodsId
      * @param int $auditId
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function resetauditGoods(int $goodsId, int $auditId)
     {
@@ -232,35 +233,33 @@ class ProgramWechatLive extends AbstractAPI
             'goodsId' => $goodsId,
             'auditId' => $auditId
         ];
-        return $this->parseJSON('json', [self::GOODS_RESET_AUDIT, $params]);
+        return $this->request('POST', self::GOODS_RESET_AUDIT, $params);
     }
 
     /**
      * 商品重新提交审核
      * @param int $goodsId
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function auditGoods(int $goodsId)
     {
         $params = [
             'goodsId' => $goodsId
         ];
-        return $this->parseJSON('json', [self::GOODS_AUDIT, $params]);
+        return $this->request('POST', self::GOODS_AUDIT, $params);
     }
 
     /**
      * 删除商品
      * @param int $goodsId
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function deleteGoods(int $goodsId)
     {
         $params = [
             'goodsId' => $goodsId
         ];
-        return $this->parseJSON('json', [self::GOODS_DELETE, $params]);
+        return $this->request('POST', self::GOODS_DELETE, $params);
     }
 
     /**
@@ -270,10 +269,9 @@ class ProgramWechatLive extends AbstractAPI
      * @param string $name
      * @param int $priceType
      * @param string $url
-     * @param $price
+     * @param float $price
      * @param string $price2
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @return array
      */
     public function updateGoods(int $goodsId, string $coverImgUrl, string $name, int $priceType, string $url, $price, $price2 = '')
     {
@@ -286,14 +284,16 @@ class ProgramWechatLive extends AbstractAPI
             'url' => $url
         ]];
         if ($priceType != 1) $params['goodsInfo']['price2'] = $price2;
-        return $this->parseJSON('json', [self::GOODS_UPDATE, $params]);
+        return $this->request('POST', self::GOODS_UPDATE, $params);
     }
 
     /**
      * 获取成员列表
-     * @param int $goodsId
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
+     * @param int $role
+     * @param int $page
+     * @param int $limit
+     * @param string $keyword
+     * @return array
      */
     public function getRoleList($role = 2, int $page = 0, $limit = 30, $keyword = '')
     {
@@ -303,6 +303,44 @@ class ProgramWechatLive extends AbstractAPI
             'limit' => $limit,
             'keyword' => $keyword
         ];
-        return $this->parseJSON('get', [self::ROLE_LIST, $params]);
+        return $this->request('GET', self::ROLE_LIST, $params);
+    }
+
+    /**
+     * 发送 HTTP 请求
+     * @param string $method
+     * @param string $url
+     * @param array $params
+     * @return array
+     */
+    protected function request(string $method, string $url, array $params = []): array
+    {
+        $accessToken = $this->app->getOfficialAccount()->getAccessToken()->getToken();
+        
+        if (strtoupper($method) === 'GET') {
+            $params['access_token'] = $accessToken;
+            $url .= '?' . http_build_query($params);
+            $params = [];
+        } else {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'access_token=' . $accessToken;
+        }
+        
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        
+        if (strtoupper($method) === 'POST') {
+            curl_setopt($curl, CURLOPT_POST, true);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
+            curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        }
+        
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
+        return json_decode($response, true) ?: [];
     }
 }

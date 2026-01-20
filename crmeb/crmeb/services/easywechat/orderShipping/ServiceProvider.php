@@ -1,5 +1,4 @@
 <?php
-
 /*
  * This file is part of the overtrue/wechat.
  *
@@ -7,37 +6,62 @@
  *
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
+ * 
+ * Modified: Refactored for EasyWeChat 6.x - Removed Pimple dependency
  */
 
 namespace crmeb\services\easywechat\orderShipping;
 
-use EasyWeChat\Payment\Merchant;
-use Pimple\Container;
-use Pimple\ServiceProviderInterface;
-use EasyWeChat\MiniProgram\AccessToken;
+use crmeb\services\easywechat\Application;
 
 /**
- * Class ServiceProvider.
+ * 订单发货 ServiceProvider
+ * 重构后不再依赖 Pimple
  *
- * @package crmeb\services\easywechat\order_ship
- * @package crmeb\services\easywechat\mini_express
+ * Class ServiceProvider
+ * @package crmeb\services\easywechat\orderShipping
  */
-class ServiceProvider implements ServiceProviderInterface
+class ServiceProvider
 {
     /**
-     * {@inheritdoc}.
+     * @var Application
      */
-    public function register(Container $pimple)
+    protected $app;
+
+    /**
+     * @var OrderClient
+     */
+    protected $orderClient;
+
+    /**
+     * ServiceProvider constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
     {
-        $pimple['mini_program.access_token'] = function ($pimple) {
-            return new AccessToken(
-                $pimple['config']['mini_program']['app_id'],
-                $pimple['config']['mini_program']['secret'],
-                $pimple['cache']
-            );
-        };
-        $pimple['order_ship'] = function ($pimple) {
-            return new OrderClient($pimple['mini_program.access_token'], $pimple);
-        };
+        $this->app = $app;
+    }
+
+    /**
+     * 获取订单客户端
+     * @return OrderClient
+     */
+    public function getOrderClient(): OrderClient
+    {
+        if (!$this->orderClient) {
+            $this->orderClient = new OrderClient($this->app);
+        }
+        return $this->orderClient;
+    }
+
+    /**
+     * 魔术方法，代理到 OrderClient
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return $this->getOrderClient()->{$name}(...$arguments);
     }
 }

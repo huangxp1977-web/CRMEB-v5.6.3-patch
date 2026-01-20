@@ -39,7 +39,7 @@ class Wechat extends BaseStorage implements OAuthInterface
      */
     public function getUserInfo(string $openid)
     {
-        return WechatService::oauth2Service()->getUserInfo($openid)->toArray();
+        return WechatService::oauth2Service()->getUserInfo($openid);
     }
 
     /**
@@ -57,7 +57,7 @@ class Wechat extends BaseStorage implements OAuthInterface
 
         if (!$open) {
             try {
-                $wechatInfo = WechatService::oauth2Service()->oauth();
+                $wechatInfo = WechatService::oauth2Service()->oauth($code ?? '');
             } catch (\Throwable $e) {
                 throw new OAuthException($e->getMessage());
             }

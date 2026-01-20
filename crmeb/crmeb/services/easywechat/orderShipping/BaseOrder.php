@@ -1,18 +1,40 @@
 <?php
+/**
+ * +----------------------------------------------------------------------
+ * | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+ * +----------------------------------------------------------------------
+ * | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+ * +----------------------------------------------------------------------
+ * | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+ * +----------------------------------------------------------------------
+ * | Author: CRMEB Team <admin@crmeb.com>
+ * | Modified: Refactored for EasyWeChat 6.x compatibility
+ * +----------------------------------------------------------------------
+ */
 
 namespace crmeb\services\easywechat\orderShipping;
 
 use crmeb\exceptions\AdminException;
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
-use EasyWeChat\Support\Collection;
+use crmeb\services\easywechat\Application;
 
-
-class BaseOrder extends AbstractAPI
+/**
+ * 订单发货服务
+ * 重构后不再依赖 EasyWeChat 4.x 的 AbstractAPI
+ *
+ * Class BaseOrder
+ * @package crmeb\services\easywechat\orderShipping
+ */
+class BaseOrder
 {
-
+    /**
+     * @var array
+     */
     public $config;
-    public $accessToken;
+
+    /**
+     * @var Application
+     */
+    public $app;
 
     const BASE_API = 'https://api.weixin.qq.com/';
 
@@ -21,114 +43,125 @@ class BaseOrder extends AbstractAPI
 
     const PATH = '/pages/goods/order_details/index';
 
-
-    public function __construct(AccessToken $accessToken, $config)
+    /**
+     * BaseOrder constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
     {
-        parent::__construct($accessToken);
-        $this->config = $config;
-        $this->accessToken = $accessToken;
+        $this->app = $app;
+        $this->config = $app->getConfig();
     }
 
-    private function resultHandle(Collection $result)
+    /**
+     * 处理结果
+     * @param array $result
+     * @return array
+     */
+    private function resultHandle(array $result)
     {
         if (empty($result)) {
             throw new AdminException('微信接口返回异常');
         }
-        $res = $result->toArray();
-        if ($res['errcode'] == 0) {
-            return $res;
+        if ($result['errcode'] == 0) {
+            return $result;
         } else {
-            throw  new AdminException("微信接口异常：code = {$res['errcode']} msg = {$res['errmsg']}");
+            throw new AdminException("微信接口异常：code = {$result['errcode']} msg = {$result['errmsg']}");
         }
     }
 
     /**
      * 发货
-     * @param $params
+     * @param array $params
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/09
-     * @author yyw
      */
     public function shipping($params)
     {
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::ORDER . 'upload_shipping_info', json_encode($params, JSON_UNESCAPED_UNICODE)]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::ORDER . 'upload_shipping_info', $params));
     }
 
     /**
      * 合单
-     * @param $params
+     * @param array $params
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/09
-     * @author yyw
      */
     public function combinedShipping($params)
     {
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::ORDER . 'upload_combined_shipping_info', json_encode($params)]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::ORDER . 'upload_combined_shipping_info', $params));
     }
-
 
     /**
      * 签收消息提醒
-     * @param $params
+     * @param array $params
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/09
-     * @author yyw
      */
     public function notifyConfirm($params)
     {
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::ORDER . 'notify_confirm_receive', json_encode($params)]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::ORDER . 'notify_confirm_receive', $params));
     }
-
 
     /**
      * 查询小程序是否已开通发货信息管理服务
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/09
-     * @author yyw
      */
     public function isManaged()
     {
         $params = [
-            'appid' => $this->config['config']['mini_program']['app_id']
+            'appid' => $this->config['config']['mini_program']['app_id'] ?? $this->config['app_id'] ?? ''
         ];
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::ORDER . 'is_trade_managed', json_encode($params)]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::ORDER . 'is_trade_managed', $params));
     }
 
     /**
      * 设置跳转连接
-     * @param $path
+     * @param string $path
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/10
-     * @author yyw
      */
     public function setMesJumpPath($path)
     {
         $params = [
             'path' => $path
         ];
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::ORDER . 'set_msg_jump_path', json_encode($params)]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::ORDER . 'set_msg_jump_path', $params));
     }
 
     /**
-     * 获取运力id列表get_delivery_list
+     * 获取运力id列表
      * @return array
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     *
-     * @date 2023/05/09
-     * @author yyw
      */
     public function getDeliveryList()
     {
-        return $this->resultHandle($this->parseJSON('POST', [self::BASE_API . self::EXPRESS . 'get_delivery_list', "{}"]));
+        return $this->resultHandle($this->request('POST', self::BASE_API . self::EXPRESS . 'get_delivery_list', []));
+    }
+
+    /**
+     * 发送 HTTP 请求
+     * @param string $method
+     * @param string $url
+     * @param array $params
+     * @return array
+     */
+    protected function request(string $method, string $url, array $params = []): array
+    {
+        $accessToken = $this->app->getOfficialAccount()->getAccessToken()->getToken();
+        $url .= (strpos($url, '?') === false ? '?' : '&') . 'access_token=' . $accessToken;
+        
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        
+        if (strtoupper($method) === 'POST') {
+            curl_setopt($curl, CURLOPT_POST, true);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params, JSON_UNESCAPED_UNICODE));
+            curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        }
+        
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
+        return json_decode($response, true) ?: [];
     }
 }

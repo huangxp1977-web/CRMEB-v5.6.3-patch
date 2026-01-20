@@ -20,7 +20,6 @@ use crmeb\services\app\MiniProgramService;
 use crmeb\services\easywechat\Application;
 use crmeb\services\pay\BasePay;
 use crmeb\services\pay\PayInterface;
-use EasyWeChat\Payment\Order;
 use think\facade\Event;
 
 /**
@@ -124,14 +123,14 @@ class V3WechatPay extends BasePay implements PayInterface
         $this->authSetPayType();
 
         switch ($this->payType) {
-            case Order::NATIVE:
+            case 'NATIVE':
                 $res = $this->instance->v3pay->nativePay($orderId, $totalFee, $body, $attach);
                 $res['invalid'] = time() + 60;
                 $res['logo'] = sys_config('wap_login_logo');
                 return $res;
-            case Order::APP:
+            case 'APP':
                 return $this->instance->v3pay->appPay($orderId, $totalFee, $body, $attach);
-            case Order::JSAPI:
+            case 'JSAPI':
                 if (empty($options['openid'])) {
                     throw new PayException('缺少openid');
                 }

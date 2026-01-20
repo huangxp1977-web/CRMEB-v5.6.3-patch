@@ -7,26 +7,21 @@
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
 // | Author: CRMEB Team <admin@crmeb.com>
+// | Modified: Refactored for EasyWeChat 6.x compatibility
 // +----------------------------------------------------------------------
 
 namespace crmeb\services\easywechat\oauth2\wechat;
 
-use Doctrine\Common\Cache\Cache;
-use Doctrine\Common\Cache\FilesystemCache;
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
-use EasyWeChat\Core\Exceptions\HttpException;
-use EasyWeChat\Core\Http;
-use EasyWeChat\Support\Collection;
-use GuzzleHttp\Psr7\Uri;
-use Psr\Http\Message\RequestInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
+ * 网页授权 OAuth
+ * 重构后不再依赖 EasyWeChat 4.x 的 AbstractAPI
+ *
  * Class WechatOauth
  * @package crmeb\services\easywechat\oauth\wechat
  */
-class WechatOauth extends AbstractAPI
+class WechatOauth
 {
     /**
      * 通过code获取网页授权access_token
@@ -48,28 +43,21 @@ class WechatOauth extends AbstractAPI
      */
     const API_OAUTH_GET_USER_INFO = 'https://api.weixin.qq.com/sns/userinfo';
 
-
     /**
      * App ID.
-     *
      * @var string
      */
     protected $appId;
 
     /**
      * App secret.
-     *
      * @var string
      */
     protected $secret;
 
     /**
-     * Cache.
-     *
-     * @var Cache
+     * @var string
      */
-    protected $cache;
-
     protected $openid;
 
     /**
@@ -78,43 +66,35 @@ class WechatOauth extends AbstractAPI
     protected $request;
 
     /**
-     * Query name.
-     *
-     * @var string
-     */
-    protected $queryName = 'access_token';
-
-    /**
      * Response Json key name.
-     *
      * @var string
      */
     protected $tokenJsonKey = 'access_token';
 
-
     /**
      * Response Json key name.
-     *
      * @var string
      */
     protected $refreshTokenJsonKey = 'refresh_token';
 
     /**
      * Cache key prefix.
-     *
      * @var string
      */
     protected $prefix = 'easywechat.common.oauth.access_token.';
 
     /**
-     * WechatOauth constructor.
-     * @param AccessToken $accessToken
-     * @param $appId
-     * @param $appSecret
+     * @var array 缓存的 token 数据
      */
-    public function __construct(AccessToken $accessToken, $appId, $appSecret)
+    protected $cachedTokens = [];
+
+    /**
+     * WechatOauth constructor.
+     * @param string $appId
+     * @param string $appSecret
+     */
+    public function __construct(string $appId, string $appSecret)
     {
-        parent::__construct($accessToken);
         $this->appId = $appId;
         $this->secret = $appSecret;
     }
@@ -126,7 +106,6 @@ class WechatOauth extends AbstractAPI
     public function setRequest(Request $request)
     {
         $this->request = $request;
-
         return $this;
     }
 
@@ -142,8 +121,7 @@ class WechatOauth extends AbstractAPI
     /**
      * 授权获取token
      * @param string $code
-     * @return false|mixed
-     * @throws HttpException
+     * @return array
      */
     public function oauth(string $code = '')
     {
@@ -154,12 +132,10 @@ class WechatOauth extends AbstractAPI
             'grant_type' => 'authorization_code',
         ];
 
-        $http = new Http();
-
-        $token = $http->parseJSON($http->get(self::API_OAUTH_ACCESS_TOKEN, $params));
+        $token = $this->httpGet(self::API_OAUTH_ACCESS_TOKEN, $params);
 
         if (empty($token[$this->tokenJsonKey])) {
-            throw new HttpException('Request AccessToken fail. response: ' . json_encode($token, JSON_UNESCAPED_UNICODE));
+            throw new \RuntimeException('Request AccessToken fail. response: ' . json_encode($token, JSON_UNESCAPED_UNICODE));
         }
         $this->setCache($token);
 
@@ -169,8 +145,7 @@ class WechatOauth extends AbstractAPI
     /**
      * 刷新token
      * @param string $refresh_token
-     * @return false|mixed
-     * @throws HttpException
+     * @return array
      */
     public function refreshToken(string $refresh_token)
     {
@@ -180,12 +155,10 @@ class WechatOauth extends AbstractAPI
             'grant_type' => 'refresh_token',
         ];
 
-        $http = new Http();
-
-        $token = $http->parseJSON($http->get(self::API_OAUTH_REFRESH_TOKEN, $params));
+        $token = $this->httpGet(self::API_OAUTH_REFRESH_TOKEN, $params);
 
         if (empty($token[$this->tokenJsonKey])) {
-            throw new HttpException('Request AccessToken fail. response: ' . json_encode($token, JSON_UNESCAPED_UNICODE));
+            throw new \RuntimeException('Request AccessToken fail. response: ' . json_encode($token, JSON_UNESCAPED_UNICODE));
         }
         $this->setCache($token);
 
@@ -194,89 +167,77 @@ class WechatOauth extends AbstractAPI
 
     /**
      * 获取用户信息
-     * @param $openId
+     * @param string $openId
+     * @param string $accessToken
      * @param string $lang
-     * @return Collection|null
-     * @throws HttpException
+     * @return array
      */
-    public function getUserInfo($openId, $lang = 'zh_CN')
+    public function getUserInfo(string $openId, string $accessToken = '', string $lang = 'zh_CN')
     {
+        $this->openid = $openId;
         $params = [
             'openid' => $openId,
+            'access_token' => $accessToken ?: $this->getToken(),
             'lang' => $lang,
         ];
-        $this->openid = $openId;
-        return $this->parseJSON('get', [self::API_OAUTH_GET_USER_INFO, $params]);
+        return $this->httpGet(self::API_OAUTH_GET_USER_INFO, $params);
     }
 
     /**
      * 获取token
-     * @param false $forceRefresh
-     * @return bool|mixed|string
-     * @throws HttpException
+     * @param bool $forceRefresh
+     * @return string
      */
     public function getToken($forceRefresh = false)
     {
-        $cacheKey = $this->prefix;
-        $cached = $this->getCache()->fetch($cacheKey . $this->tokenJsonKey . $this->openid);
-
-        if ($forceRefresh || !$cached) {
-            $refreshCached = $this->getCache()->fetch($cacheKey . $this->refreshTokenJsonKey . $this->openid);
-            if ($refreshCached) {
-                $token = $this->refreshToken($refreshCached);
-
-                return $token[$this->tokenJsonKey];
-            }
-            return '';
+        $cacheKey = $this->prefix . $this->tokenJsonKey . $this->openid;
+        
+        if (!$forceRefresh && isset($this->cachedTokens[$cacheKey])) {
+            return $this->cachedTokens[$cacheKey];
         }
 
-        return $cached;
+        $refreshCacheKey = $this->prefix . $this->refreshTokenJsonKey . $this->openid;
+        if (isset($this->cachedTokens[$refreshCacheKey])) {
+            $token = $this->refreshToken($this->cachedTokens[$refreshCacheKey]);
+            return $token[$this->tokenJsonKey] ?? '';
+        }
+        
+        return '';
     }
 
     /**
      * 保存token信息
-     * @param $token
+     * @param array $token
      * @return bool
      */
     public function setCache($token)
     {
         $cacheKey = $this->prefix;
-        // XXX: T_T... 7200 - 1500
-        $this->getCache()->save($cacheKey . $this->tokenJsonKey . $token['openid'], $token[$this->tokenJsonKey], $token['expires_in'] - 1500);
-        $this->getCache()->save($cacheKey . $this->refreshTokenJsonKey . $token['openid'], $token[$this->refreshTokenJsonKey], 30 * 24 * 3600);
+        $this->cachedTokens[$cacheKey . $this->tokenJsonKey . $token['openid']] = $token[$this->tokenJsonKey];
+        $this->cachedTokens[$cacheKey . $this->refreshTokenJsonKey . $token['openid']] = $token[$this->refreshTokenJsonKey];
         return true;
     }
 
     /**
-     * Return the cache manager.
-     *
-     * @return \Doctrine\Common\Cache\Cache
+     * 发送 HTTP GET 请求
+     * @param string $url
+     * @param array $params
+     * @return array
      */
-    public function getCache()
+    protected function httpGet(string $url, array $params = []): array
     {
-        return $this->cache ?: $this->cache = new FilesystemCache(sys_get_temp_dir());
+        $url .= '?' . http_build_query($params);
+        
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
+        return json_decode($response, true) ?: [];
     }
-
-    /**
-     * Attache access token to request query.
-     *
-     * @return \Closure
-     */
-    protected function accessTokenMiddleware()
-    {
-        return function (callable $handler) {
-            return function (RequestInterface $request, array $options) use ($handler) {
-                $token = $this->getToken();
-                if (!$token) {
-                    return $handler($request, $options);
-                }
-
-                $request = $request->withUri(Uri::withQueryValue($request->getUri(), $this->queryName, $token));
-
-                return $handler($request, $options);
-            };
-        };
-    }
-
-
 }

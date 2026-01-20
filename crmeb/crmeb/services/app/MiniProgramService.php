@@ -20,7 +20,6 @@ use crmeb\services\easywechat\orderShipping\MiniOrderService;
 use crmeb\services\SystemConfigService;
 use app\services\pay\PayNotifyServices;
 use crmeb\services\easywechat\Application;
-use EasyWeChat\Payment\Order;
 use think\facade\Env;
 use think\facade\Event;
 use think\facade\Log;
@@ -214,26 +213,32 @@ class MiniProgramService
         return self::miniprogram()->staff;
     }
 
-    /**
-     * 微信小程序二维码生成接口
-     * @return \EasyWeChat\QRCode\QRCode
-     */
-    public static function qrcodeService()
-    {
-        return self::miniprogram()->qrcode;
-    }
-
     /**微信小程序二维码生成接口不限量永久
      * @param $scene
      * @param null $page
      * @param null $width
      * @param null $autoColor
      * @param array $lineColor
-     * @return \Psr\Http\Message\StreamInterface
+     * @return string
      */
     public static function appCodeUnlimitService($scene, $page = null, $width = 430, $autoColor = false, $lineColor = ['r' => 0, 'g' => 0, 'b' => 0])
     {
-        return self::qrcodeService()->appCodeUnlimit($scene, $page, $width, $autoColor, $lineColor);
+        $params = [
+            'scene' => $scene,
+            'page' => $page,
+            'width' => $width,
+            'auto_color' => $autoColor,
+            'line_color' => $lineColor,
+        ];
+        $response = self::miniprogram()->getClient()->postJson('wxa/getwxacodeunlimit', $params);
+        $content = $response->getContent(false); // get content, do not throw yet
+        
+        $json = json_decode($content, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($json['errcode']) && $json['errcode'] !== 0) {
+            throw new AdminException($json['errmsg']);
+        }
+        
+        return $content;
     }
 
 
@@ -366,14 +371,14 @@ class MiniProgramService
      * @param string $detail
      * @param string $trade_type
      * @param array $options
-     * @return Order
+     * @return array
      */
     protected static function paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
         $total_fee = bcmul($total_fee, 100, 0);
         $order = array_merge(compact('openid', 'out_trade_no', 'total_fee', 'attach', 'body', 'detail', 'trade_type'), $options);
         if ($order['detail'] == '') unset($order['detail']);
-        return new Order($order);
+        return $order;
     }
 
     /**
@@ -396,25 +401,25 @@ class MiniProgramService
             return $result;
         } else {
             $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-            $result = self::paymentService()->prepare($order);
-            if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
-                CacheService::set($key, $result->prepay_id, 7000);
-                return $result->prepay_id;
-            } else {
-                if ($result->return_code == 'FAIL') {
-                    exception('微信支付错误返回：' . $result->return_msg);
-                } else if (isset($result->err_code)) {
-                    exception('微信支付错误返回：' . $result->err_code_des);
-                } else {
-                    exception('没有获取微信支付的预支付ID，请重新发起支付!');
-                }
-                exit;
+            // V3 Pay returns array. If it throws exception, it bubbles up.
+            try {
+                $result = self::paymentService()->prepare($order);
+            } catch (\Exception $e) {
+                throw new AdminException('微信支付错误：' . $e->getMessage());
             }
+            // V3 returns prepay_id in array
+            $prepayId = is_array($result) ? ($result['prepay_id'] ?? null) : ($result->prepay_id ?? null);
+            if (!$prepayId) {
+                throw new AdminException('没有获取微信支付的预支付ID，请重新发起支付!');
+            }
+            CacheService::set($key, $prepayId, 7000);
+            return $prepayId;
         }
     }
+// ... (skipping unchanged code if any in between, but I should probably replace the whole block or target specifically)
 
     /**
-     * 获得下单ID
+     * 获得App支付参数
      * @param $openid
      * @param $out_trade_no
      * @param $total_fee
@@ -423,27 +428,12 @@ class MiniProgramService
      * @param string $detail
      * @param string $trade_type
      * @param array $options
-     * @return mixed
+     * @return array|string
      */
-    public static function newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $options = [])
+    public static function appPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'APP', $options = [])
     {
-        $key = 'pay_' . $out_trade_no;
-        $result = CacheService::get($key);
-        if ($result) {
-            return $result;
-        } else {
-            $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
-            $result = self::application()->minipay->createorder($order);
-            if ($result->errcode === 0) {
-                CacheService::set($key, $result->payment_params, 7000);
-                return $result->payment_params;
-            } else {
-                exception('微信支付错误返回：' . '[' . $result->errcode . ']' . $result->errmsg);
-                exit;
-            }
-        }
+        return self::paymentService()->configForAppPayment(self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options));
     }
-
 
     /**
      * 获得jsSdk支付参数
@@ -459,45 +449,60 @@ class MiniProgramService
      */
     public static function jsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
-        return self::paymentService()->configForJSSDKPayment(self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options));
+        $prepayId = self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        return self::paymentService()->configForJSSDKPayment($prepayId);
     }
 
     /**
-     * 获得jsSdk支付参数
+     * 获得jsSdk支付参数 新小程序支付
      * @param $openid
      * @param $out_trade_no
      * @param $total_fee
      * @param $attach
      * @param $body
      * @param string $detail
-     * @param string $trade_type
      * @param array $options
      * @return array|string
      */
     public static function newJsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $options = [])
     {
-        $config = self::newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
-        $config['timestamp'] = $config['timeStamp'];
-        unset($config['timeStamp']);
-        return $config;
-
+        $prepayId = self::newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $options);
+        return self::paymentService()->configForJSSDKPayment($prepayId);
     }
 
     /**
-     * 获得App支付参数
+     * 获得下单ID 新小程序支付
      * @param $openid
      * @param $out_trade_no
      * @param $total_fee
      * @param $attach
      * @param $body
      * @param string $detail
-     * @param string $trade_type
      * @param array $options
-     * @return array|string
+     * @return mixed
      */
-    public static function appPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = Order::APP, $options = [])
+    public static function newPaymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $options = [])
     {
-        return self::paymentService()->configForAppPayment(self::paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options));
+        $key = 'pay_new_' . $out_trade_no;
+        $result = CacheService::get($key);
+        if ($result) {
+            return $result;
+        } else {
+            $order = self::paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, 'JSAPI', $options);
+            // Use minipay service for new mini program payment
+            try {
+                $result = self::application()->minipay->createorder($order);
+            } catch (\Exception $e) {
+                throw new AdminException('微信支付错误：' . $e->getMessage());
+            }
+            // Handle response
+            $prepayId = is_array($result) ? ($result['prepay_id'] ?? null) : ($result->prepay_id ?? null);
+            if (!$prepayId) {
+                throw new AdminException('没有获取微信支付的预支付ID，请重新发起支付!');
+            }
+            CacheService::set($key, $prepayId, 7000);
+            return $prepayId;
+        }
     }
 
     /**
@@ -570,8 +575,17 @@ class MiniProgramService
         $refundAccount = $opt['refund_account'] ?? 'REFUND_SOURCE_UNSETTLED_FUNDS';
         try {
             $res = (self::refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount));
-            if ($res->return_code == 'FAIL') throw new AdminException(400731, ['msg' => $res->return_msg]);
-            if (isset($res->err_code)) throw new AdminException(400731, ['msg' => $res->err_code_des]);
+            // V3 returns array, V2 returns object
+            if (is_array($res)) {
+                // V3 success - if we get here without exception, it's success
+                if (isset($res['code']) && $res['code'] !== 'SUCCESS') {
+                    throw new AdminException(400731, ['msg' => $res['message'] ?? '退款失败']);
+                }
+            } else {
+                // V2 fallback
+                if ($res->return_code == 'FAIL') throw new AdminException(400731, ['msg' => $res->return_msg]);
+                if (isset($res->err_code)) throw new AdminException(400731, ['msg' => $res->err_code_des]);
+            }
         } catch (\Exception $e) {
             throw new AdminException($e->getMessage());
         }
@@ -586,15 +600,21 @@ class MiniProgramService
     public static function handleNotify()
     {
         return self::paymentService()->handleNotify(function ($notify, $successful) {
-            if ($successful && isset($notify->out_trade_no)) {
-                if (isset($notify->attach) && $notify->attach) {
-                    if (($count = strpos($notify->out_trade_no, '_')) !== false) {
-                        $notify->out_trade_no = substr($notify->out_trade_no, $count + 1);
+            // V3 passes decoded JSON object, support both object and array access
+            $outTradeNo = is_array($notify) ? ($notify['out_trade_no'] ?? null) : ($notify->out_trade_no ?? null);
+            $attach = is_array($notify) ? ($notify['attach'] ?? null) : ($notify->attach ?? null);
+            $transactionId = is_array($notify) ? ($notify['transaction_id'] ?? null) : ($notify->transaction_id ?? null);
+            
+            if ($successful && $outTradeNo) {
+                if ($attach) {
+                    if (($count = strpos($outTradeNo, '_')) !== false) {
+                        $outTradeNo = substr($outTradeNo, $count + 1);
                     }
-                    (new Hook(PayNotifyServices::class, 'wechat'))->listen($notify->attach, $notify->out_trade_no, $notify->transaction_id);
+                    (new Hook(PayNotifyServices::class, 'wechat'))->listen($attach, $outTradeNo, $transactionId);
                 }
-                return false;
+                return true; // Return true to indicate successful processing
             }
+            return false;
         });
     }
 

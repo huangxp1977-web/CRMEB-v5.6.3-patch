@@ -8,29 +8,62 @@
  *  | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
  *  +----------------------------------------------------------------------
  *  | Author: CRMEB Team <admin@crmeb.com>
+ *  | Modified: Refactored for EasyWeChat 6.x - Removed Pimple dependency
  *  +----------------------------------------------------------------------
  */
 
 namespace crmeb\services\easywechat\v3pay;
 
-
-use Pimple\Container;
-use Pimple\ServiceProviderInterface;
+use crmeb\services\easywechat\Application;
 
 /**
+ * V3支付 ServiceProvider
+ * 重构后不再依赖 Pimple
+ * 
  * Class ServiceProvider
  * @package crmeb\services\easywechat\v3pay
  */
-class ServiceProvider implements ServiceProviderInterface
+class ServiceProvider
 {
+    /**
+     * @var Application
+     */
+    protected $app;
 
     /**
-     * @param Container $pimple
+     * @var PayClient
      */
-    public function register(Container $pimple)
+    protected $payClient;
+
+    /**
+     * ServiceProvider constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
     {
-        $pimple['v3pay'] = function ($pimple) {
-            return new PayClient($pimple['access_token'], $pimple);
-        };
+        $this->app = $app;
+    }
+
+    /**
+     * 获取支付客户端
+     * @return PayClient
+     */
+    public function getPayClient(): PayClient
+    {
+        if (!$this->payClient) {
+            $this->payClient = new PayClient(null, $this->app);
+        }
+        return $this->payClient;
+    }
+
+    /**
+     * 魔术方法，代理到 PayClient
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return $this->getPayClient()->{$name}(...$arguments);
     }
 }

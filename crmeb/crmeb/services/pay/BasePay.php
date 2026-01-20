@@ -10,7 +10,6 @@
 // +----------------------------------------------------------------------
 namespace crmeb\services\pay;
 
-use EasyWeChat\Payment\Order;
 use crmeb\basic\BaseStorage;
 
 /**
@@ -44,13 +43,13 @@ abstract class BasePay extends BaseStorage
     {
         if (!$this->payType) {
             if (request()->isPc()) {
-                $this->payType = Order::NATIVE;
+                $this->payType = 'NATIVE';
             }
             if (request()->isApp()) {
-                $this->payType = Order::APP;
+                $this->payType = 'APP';
             }
             if (request()->isRoutine() || request()->isWechat()) {
-                $this->payType = Order::JSAPI;
+                $this->payType = 'JSAPI';
             }
             if (request()->isH5()) {
                 $this->payType = 'h5';

@@ -7,26 +7,30 @@
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
 // | Author: CRMEB Team <admin@crmeb.com>
+// | Modified: Refactored for EasyWeChat 6.x compatibility
 // +----------------------------------------------------------------------
+
 namespace crmeb\services\easywechat\wechatTemplate;
 
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
-use EasyWeChat\Core\Exceptions\InvalidArgumentException;
-use EasyWeChat\Notice\Notice;
+use crmeb\services\easywechat\Application;
 
-class ProgramTemplate extends AbstractAPI
+/**
+ * 公众号模板消息
+ * 重构后不再依赖 EasyWeChat 4.x 的 AbstractAPI
+ *
+ * Class ProgramTemplate
+ * @package crmeb\services\easywechat\wechatTemplate
+ */
+class ProgramTemplate
 {
     /**
      * Default color.
-     *
      * @var string
      */
     protected $defaultColor = '#173177';
 
     /**
      * Attributes.
-     *
      * @var array
      */
     protected $message = [
@@ -39,17 +43,20 @@ class ProgramTemplate extends AbstractAPI
 
     /**
      * Required attributes.
-     *
      * @var array
      */
     protected $required = ['touser', 'template_id'];
 
     /**
      * Message backup.
-     *
      * @var array
      */
     protected $messageBackup;
+
+    /**
+     * @var Application
+     */
+    protected $app;
 
     const API_SEND_NOTICE = 'https://api.weixin.qq.com/cgi-bin/message/template/send';
     const API_SET_INDUSTRY = 'https://api.weixin.qq.com/cgi-bin/template/api_set_industry';
@@ -59,53 +66,42 @@ class ProgramTemplate extends AbstractAPI
     const API_DEL_PRIVATE_TEMPLATE = 'https://api.weixin.qq.com/cgi-bin/template/del_private_template';
 
     /**
-     * Notice constructor.
-     *
-     * @param \EasyWeChat\Core\AccessToken $accessToken
+     * ProgramTemplate constructor.
+     * @param Application $app
      */
-    public function __construct(AccessToken $accessToken)
+    public function __construct(Application $app)
     {
-        parent::__construct($accessToken);
-
+        $this->app = $app;
         $this->messageBackup = $this->message;
     }
 
     /**
      * Set default color.
-     *
-     * @param string $color example: #0f0f0f
-     *
+     * @param string $color
      * @return $this
      */
     public function defaultColor($color)
     {
         $this->defaultColor = $color;
-
         return $this;
     }
 
     /**
      * Set miniprogram.
-     * @param $data
+     * @param array $data
      * @return $this
-     * @author: 吴汐
-     * @email: 442384644@qq.com
-     * @date: 2023/8/22
      */
     public function setMiniprogram($data)
     {
         $this->message['miniprogram'] = $data;
-
         return $this;
     }
 
     /**
      * Set industry.
-     *
      * @param int $industryOne
      * @param int $industryTwo
-     *
-     * @return \EasyWeChat\Support\Collection
+     * @return array
      */
     public function setIndustry($industryOne, $industryTwo)
     {
@@ -113,69 +109,54 @@ class ProgramTemplate extends AbstractAPI
             'industry_id1' => $industryOne,
             'industry_id2' => $industryTwo,
         ];
-
-        return $this->parseJSON('json', [self::API_SET_INDUSTRY, $params]);
+        return $this->request('POST', self::API_SET_INDUSTRY, $params);
     }
 
     /**
      * Get industry.
-     *
-     * @return \EasyWeChat\Support\Collection
+     * @return array
      */
     public function getIndustry()
     {
-        return $this->parseJSON('json', [self::API_GET_INDUSTRY]);
+        return $this->request('POST', self::API_GET_INDUSTRY, []);
     }
 
     /**
      * Add a template and get template ID.
-     * @param $shortId
-     * @param $content
-     * @return \EasyWeChat\Support\Collection|null
-     * @throws \EasyWeChat\Core\Exceptions\HttpException
-     * @author: 吴汐
-     * @email: 442384644@qq.com
-     * @date: 2023/8/16
+     * @param string $shortId
+     * @param array $content
+     * @return array
      */
     public function addTemplate($shortId, $content)
     {
         $params = ['template_id_short' => $shortId, 'keyword_name_list' => $content];
-
-        return $this->parseJSON('json', [self::API_ADD_TEMPLATE, $params]);
+        return $this->request('POST', self::API_ADD_TEMPLATE, $params);
     }
 
     /**
      * Get private templates.
-     *
-     * @return \EasyWeChat\Support\Collection
+     * @return array
      */
     public function getPrivateTemplates()
     {
-        return $this->parseJSON('json', [self::API_GET_ALL_PRIVATE_TEMPLATE]);
+        return $this->request('POST', self::API_GET_ALL_PRIVATE_TEMPLATE, []);
     }
 
     /**
      * Delete private template.
-     *
      * @param string $templateId
-     *
-     * @return \EasyWeChat\Support\Collection
+     * @return array
      */
     public function deletePrivateTemplate($templateId)
     {
         $params = ['template_id' => $templateId];
-
-        return $this->parseJSON('json', [self::API_DEL_PRIVATE_TEMPLATE, $params]);
+        return $this->request('POST', self::API_DEL_PRIVATE_TEMPLATE, $params);
     }
 
     /**
      * Send a notice message.
-     *
-     * @param $data
-     *
-     * @return \EasyWeChat\Support\Collection
-     *
-     * @throws \EasyWeChat\Core\Exceptions\InvalidArgumentException
+     * @param array $data
+     * @return array
      */
     public function send($data = [])
     {
@@ -183,26 +164,22 @@ class ProgramTemplate extends AbstractAPI
 
         foreach ($params as $key => $value) {
             if (in_array($key, $this->required, true) && empty($value) && empty($this->message[$key])) {
-                throw new InvalidArgumentException("Attribute '$key' can not be empty!");
+                throw new \InvalidArgumentException("Attribute '$key' can not be empty!");
             }
-
             $params[$key] = empty($value) ? $this->message[$key] : $value;
         }
 
         $params['data'] = $this->formatData($params['data']);
-
         $this->message = $this->messageBackup;
 
-        return $this->parseJSON('json', [static::API_SEND_NOTICE, $params]);
+        return $this->request('POST', static::API_SEND_NOTICE, $params);
     }
 
     /**
-     * Magic access..
-     *
+     * Magic access.
      * @param string $method
      * @param array $args
-     *
-     * @return Notice
+     * @return $this
      */
     public function __call($method, $args)
     {
@@ -237,9 +214,7 @@ class ProgramTemplate extends AbstractAPI
 
     /**
      * Format template data.
-     *
      * @param array $data
-     *
      * @return array
      */
     protected function formatData($data)
@@ -272,5 +247,36 @@ class ProgramTemplate extends AbstractAPI
         }
 
         return $return;
+    }
+
+    /**
+     * 发送 HTTP 请求
+     * @param string $method
+     * @param string $url
+     * @param array $params
+     * @return array
+     */
+    protected function request(string $method, string $url, array $params = []): array
+    {
+        $accessToken = $this->app->getOfficialAccount()->getAccessToken()->getToken();
+        $url .= (strpos($url, '?') === false ? '?' : '&') . 'access_token=' . $accessToken;
+        
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        
+        if (strtoupper($method) === 'POST') {
+            curl_setopt($curl, CURLOPT_POST, true);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
+            curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        }
+        
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
+        return json_decode($response, true) ?: [];
     }
 }

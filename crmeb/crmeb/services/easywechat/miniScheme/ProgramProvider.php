@@ -1,25 +1,62 @@
 <?php
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Modified: Refactored for EasyWeChat 6.x - Removed Pimple dependency
+// +----------------------------------------------------------------------
 
 namespace crmeb\services\easywechat\miniScheme;
 
-use EasyWeChat\MiniProgram\AccessToken;
-use Pimple\Container;
-use Pimple\ServiceProviderInterface;
+use crmeb\services\easywechat\Application;
 
-class ProgramProvider implements ServiceProviderInterface
+/**
+ * 小程序 URL Scheme Provider
+ * 重构后不再依赖 Pimple
+ * 
+ * Class ProgramProvider
+ * @package crmeb\services\easywechat\miniScheme
+ */
+class ProgramProvider
 {
-    public function register(Container $pimple)
-    {
-        $pimple['mini_program.access_token'] = function ($pimple) {
-            return new AccessToken(
-                $pimple['config']['mini_program']['app_id'],
-                $pimple['config']['mini_program']['secret'],
-                $pimple['cache']
-            );
-        };
+    /**
+     * @var Application
+     */
+    protected $app;
 
-        $pimple['mini_program.mini_scheme'] = function ($pimple) {
-            return new ProgramScheme($pimple['mini_program.access_token']);
-        };
+    /**
+     * @var ProgramScheme
+     */
+    protected $scheme;
+
+    /**
+     * ProgramProvider constructor.
+     * @param Application $app
+     */
+    public function __construct(Application $app)
+    {
+        $this->app = $app;
+    }
+
+    /**
+     * 获取 Scheme 实例
+     * @return ProgramScheme
+     */
+    public function getScheme(): ProgramScheme
+    {
+        if (!$this->scheme) {
+            $this->scheme = new ProgramScheme($this->app);
+        }
+        return $this->scheme;
+    }
+
+    /**
+     * 魔术方法，代理到 ProgramScheme
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return $this->getScheme()->{$name}(...$arguments);
     }
 }

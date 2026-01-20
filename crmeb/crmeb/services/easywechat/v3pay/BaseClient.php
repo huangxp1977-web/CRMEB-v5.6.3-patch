@@ -8,6 +8,7 @@
  *  | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
  *  +----------------------------------------------------------------------
  *  | Author: CRMEB Team <admin@crmeb.com>
+ *  | Modified: Refactored for EasyWeChat 6.x compatibility
  *  +----------------------------------------------------------------------
  */
 
@@ -16,16 +17,17 @@ namespace crmeb\services\easywechat\v3pay;
 
 use crmeb\exceptions\PayException;
 use crmeb\services\easywechat\Application;
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
-use EasyWeChat\Core\Exceptions\HttpException;
-use EasyWeChat\Core\Exceptions\InvalidConfigException;
-use EasyWeChat\Core\Http;
-use EasyWeChat\Encryption\EncryptionException;
 use think\exception\InvalidArgumentException;
 
 
-class BaseClient extends AbstractAPI
+/**
+ * V3 支付基础客户端
+ * 重构后不再依赖 EasyWeChat 4.x 的 AbstractAPI
+ *
+ * Class BaseClient
+ * @package crmeb\services\easywechat\v3pay
+ */
+class BaseClient
 {
 
     use Certficates;
@@ -43,12 +45,11 @@ class BaseClient extends AbstractAPI
 
     /**
      * BaseClient constructor.
-     * @param AccessToken $accessToken
-     * @param $app
+     * @param $accessToken (unused, kept for compatibility)
+     * @param Application $app
      */
-    public function __construct(AccessToken $accessToken, $app)
+    public function __construct($accessToken, $app)
     {
-        parent::__construct($accessToken);
         $this->app = $app;
     }
 
@@ -58,7 +59,8 @@ class BaseClient extends AbstractAPI
      * @param string $endpoint
      * @param string $method
      * @param array $options
-     * @param bool $returnResponse
+     * @param bool $serial
+     * @return mixed
      */
     public function request(string $endpoint, string $method = 'POST', array $options = [], $serial = true)
     {
@@ -80,8 +82,8 @@ class BaseClient extends AbstractAPI
         $options['headers'] = array_merge($headers, ($options['headers'] ?? []));
 
         if ($serial) {
-            if ($this->app['config']['v3_payment']['v3_pay_public_key'] != '') {
-                $options['headers']['Wechatpay-Serial'] = $this->app['config']['v3_payment']['v3_pay_public_key'];
+            if ($this->app->getConfig()['v3_payment']['v3_pay_public_key'] != '') {
+                $options['headers']['Wechatpay-Serial'] = $this->app->getConfig()['v3_payment']['v3_pay_public_key'];
             } else {
                 $options['headers']['Wechatpay-Serial'] = $this->getCertficatescAttr('serial_no');
             }
@@ -135,14 +137,14 @@ class BaseClient extends AbstractAPI
     {
         $certificates = $this->app->certficates->get()['certificates'];
         if (null === $certificates) {
-            throw new InvalidConfigException('config certificate connot be empty.');
+            throw new \InvalidArgumentException('config certificate connot be empty.');
         }
         $encrypted = '';
         if (openssl_public_encrypt($string, $encrypted, $certificates, OPENSSL_PKCS1_OAEP_PADDING)) {
             //base64编码
             $sign = base64_encode($encrypted);
         } else {
-            throw new EncryptionException('Encryption of sensitive information failed');
+            throw new \RuntimeException('Encryption of sensitive information failed');
         }
         return $sign;
     }
@@ -167,7 +169,7 @@ class BaseClient extends AbstractAPI
         $sign = base64_encode($raw_sign);
         $schema = 'WECHATPAY2-SHA256-RSA2048 ';
         $token = sprintf('mchid="%s",nonce_str="%s",timestamp="%d",serial_no="%s",signature="%s"',
-            $this->app['config']['v3_payment']['mchid'], $nonceStr, $timestamp, $this->app['config']['v3_payment']['serial_no'], $sign);
+            $this->app->getConfig()['v3_payment']['mchid'], $nonceStr, $timestamp, $this->app->getConfig()['v3_payment']['serial_no'], $sign);
         return $schema . $token;
     }
 
@@ -177,7 +179,7 @@ class BaseClient extends AbstractAPI
      */
     protected function getPrivateKey()
     {
-        $key_path = $this->app['config']['v3_payment']['key_path'];
+        $key_path = $this->app->getConfig()['v3_payment']['key_path'];
         if (!file_exists($key_path)) {
             throw new \InvalidArgumentException(
                 "SSL certificate not found: {$key_path}"
@@ -192,10 +194,11 @@ class BaseClient extends AbstractAPI
      */
     protected function getPublicKey()
     {
-        if ($this->app['config']['v3_payment']['v3_pay_public_key'] != '') {
-            $key_path = $this->app['config']['v3_payment']['v3_pay_public_pem'];
+        $config = $this->app->getConfig();
+        if ($config['v3_payment']['v3_pay_public_key'] != '') {
+            $key_path = $config['v3_payment']['v3_pay_public_pem'];
         } else {
-            $key_path = $this->app['config']['v3_payment']['cert_path'];
+            $key_path = $config['v3_payment']['cert_path'];
         }
         if (!file_exists($key_path)) {
             throw new \InvalidArgumentException(
@@ -260,7 +263,7 @@ class BaseClient extends AbstractAPI
         $ciphertext = base64_decode($encryptCertificate['ciphertext'], true);
         $associatedData = $encryptCertificate['associated_data'];
         $nonceStr = $encryptCertificate['nonce'];
-        $aesKey = $this->app['config']['v3_payment']['key'];
+        $aesKey = $this->app->getConfig()['v3_payment']['key'];
 
         try {
             // ext-sodium (default installed on >= PHP 7.2)

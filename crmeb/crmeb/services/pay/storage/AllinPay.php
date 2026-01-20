@@ -19,7 +19,6 @@ use crmeb\exceptions\PayException;
 use crmeb\services\pay\BasePay;
 use crmeb\services\pay\PayInterface;
 use crmeb\services\pay\extend\allinpay\AllinPay as AllinPayService;
-use EasyWeChat\Payment\Order;
 use think\facade\Event;
 
 /**
@@ -85,15 +84,15 @@ class AllinPay extends BasePay implements PayInterface
         $this->pay->setNotifyUrl($notifyUrl);
 
         switch ($this->payType) {
-            case Order::APP:
+            case 'APP':
                 return $this->pay->appPay($totalFee, $orderId, $body, '', '', false, $attach);
-            case Order::JSAPI:
+            case 'JSAPI':
                 if (request()->isRoutine()) {
                     return $this->pay->miniproPay($totalFee, $orderId, $body, $attach);
                 } else {
                     return $this->pay->h5Pay($totalFee, $orderId, $body, $options['returl'] ?? '', $attach);
                 }
-            case Order::NATIVE:
+            case 'NATIVE':
                 return $this->pay->pcPay($totalFee, $orderId, $body, $attach, !empty($options['wechat']));
             default:
                 throw new PayException('通联支付:支付类型错误或者暂不支持此环境下支付');
