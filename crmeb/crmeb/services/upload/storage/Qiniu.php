@@ -406,7 +406,10 @@ class Qiniu extends BaseUpload
 
     public function getDomianInfo(string $host)
     {
-        $url = 'https://' . Config::API_HOST . '/domain/' . $host;
+        // 去掉协议前缀，只保留主机名
+        $parsed = parse_url($host);
+        $hostName = $parsed['host'] ?? str_replace(['https://', 'http://'], '', $host);
+        $url = 'https://' . Config::API_HOST . '/domain/' . $hostName;
         $headers = $this->app()->authorization($url, null, 'application/x-www-form-urlencoded');
         $headers["Content-Type"] = 'application/x-www-form-urlencoded';
         $ret = Client::get($url, $headers);
