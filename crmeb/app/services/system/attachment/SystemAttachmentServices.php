@@ -109,12 +109,25 @@ class SystemAttachmentServices extends BaseServices
                     // 如果检查通过，执行物理文件删除
                     $upload = UploadService::init($attinfo['image_type']);
                     if ($attinfo['image_type'] == 1) {
-                        if (strpos($attinfo['att_dir'], '/') === 0) {
-                            $attinfo['att_dir'] = substr($attinfo['att_dir'], 1);
+                        // 本地存储
+                        $path = $attinfo['att_dir'];
+                        if (strpos($path, 'http') === 0) {
+                            $parsed = parse_url($path);
+                            $path = $parsed['path'] ?? '';
                         }
-                        if ($attinfo['att_dir']) $upload->delete($attinfo['att_dir']);
+                        if (strpos($path, '/') === 0) {
+                            $path = substr($path, 1);
+                        }
+                        if ($path) $upload->delete($path);
                     } else {
-                        if ($attinfo['name']) $upload->delete($attinfo['name']);
+                        // 云存储：从att_dir中提取key（去掉域名部分）
+                        $key = $attinfo['att_dir'];
+                        if (strpos($key, 'http') === 0) {
+                            // 从完整URL中提取路径部分作为key
+                            $parsed = parse_url($key);
+                            $key = ltrim($parsed['path'] ?? '', '/');
+                        }
+                        if ($key) $upload->delete($key);
                     }
                     $this->dao->delete((int)$v);
                 } catch (\Throwable $e) {
@@ -517,21 +530,13 @@ class SystemAttachmentServices extends BaseServices
             }
         }
         
-        // 8. 检查组合数据 (Banner、金刚区导航等)
-        // 组合数据的值存储在 `value` 字段，是JSON字符串，直接模糊匹配
-        // 移除 status 检查，只要存在引用即阻止删除
-        $groupData = $groupDataServices->getOne([
-            ['value', 'like', "%$filename%"]
-        ]);
-        if ($groupData) throw new AdminException("【{$attinfo['real_name']}】被首页/配置【ID:{$groupData['gid']}】使用(Banner/导航等)");
-
-        // 9. 检查系统配置 (Logo、H5配置等)
+        // 8. 检查系统配置 (Logo、H5配置等)
         $sysConfig = $configServices->getOne([
             ['value', 'like', "%$filename%"]
         ]);
         if ($sysConfig) throw new AdminException("【{$attinfo['real_name']}】被系统配置【" . $sysConfig['menu_name'] . "】使用");
 
-        // 10. 检查渠道二维码
+        // 9. 检查渠道二维码
         $qrcode = $qrcodeServices->getOne([
             ['image', 'like', "%$filename%"]
         ]);

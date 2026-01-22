@@ -439,6 +439,59 @@
           />
         </div>
       </el-card>
+      <!-- 文件同步卡片 -->
+      <el-card :bordered="false" shadow="never" class="ivu-mt sync-card" v-if="formValidate.upload_type != '1'">
+        <div slot="header" class="sync-header">
+          <span class="sync-title">📦 文件同步</span>
+        </div>
+        <div class="sync-section">
+          <div class="sync-info">
+            <div class="sync-icon">
+              <i class="el-icon-upload2"></i>
+            </div>
+            <div class="sync-text">
+              <p class="sync-desc">将本地 uploads 目录的文件同步到云存储，同步完成后本地文件将被自动删除。</p>
+              <div class="sync-stats">
+                <span class="sync-count-label">待同步文件：</span>
+                <span class="sync-count-number">{{ syncCount }}</span>
+                <span class="sync-count-unit">个</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 进度条区域 -->
+          <div v-if="syncing || syncProgress.success > 0 || syncProgress.failed > 0" class="sync-progress-area">
+            <div class="progress-bar-container">
+              <div class="progress-bar" :style="{ width: syncProgressPercent + '%' }"></div>
+            </div>
+            <div class="progress-stats">
+              <span class="progress-percent">{{ syncProgressPercent }}%</span>
+              <span class="progress-detail">
+                <span class="success">✓ {{ syncProgress.success }}</span>
+                <span class="failed" v-if="syncProgress.failed > 0">✗ {{ syncProgress.failed }}</span>
+                <span class="remaining">剩余 {{ syncProgress.remaining }}</span>
+              </span>
+            </div>
+          </div>
+          
+          <div class="sync-actions">
+            <el-button 
+              type="primary" 
+              size="medium"
+              :disabled="syncCount === 0 || syncing" 
+              :loading="syncing"
+              @click="startSync"
+              class="sync-btn"
+            >
+              <i class="el-icon-refresh" v-if="!syncing"></i>
+              {{ syncing ? '同步中...' : '开始同步' }}
+            </el-button>
+            <span class="sync-tip" v-if="syncCount === 0 && !syncing">
+              <i class="el-icon-circle-check"></i> 暂无需要同步的文件
+            </span>
+          </div>
+        </div>
+      </el-card>
     </div>
     <el-dialog :visible.sync="configuModal" title="CNAME配置" width="570px">
       <div>
@@ -478,6 +531,8 @@ import {
   positionInfoApi,
   positionPostApi,
   saveType,
+  storageSyncCountApi,
+  storageSyncStartApi,
 } from '@/api/setting';
 export default {
   components: { uploadPictures },
@@ -561,7 +616,23 @@ export default {
         AccessKeySecret: '',
       },
       localStorage: false,
+      // 同步相关
+      syncCount: 0,
+      syncTotal: 0, // 总数用于计算进度
+      syncing: false,
+      syncProgress: {
+        success: 0,
+        failed: 0,
+        remaining: 0,
+      },
     };
+  },
+  computed: {
+    syncProgressPercent() {
+      if (this.syncTotal === 0) return 0;
+      const completed = this.syncProgress.success + this.syncProgress.failed;
+      return Math.round((completed / this.syncTotal) * 100);
+    }
   },
   created() {
     storageConfigApi().then((res) => {
@@ -571,9 +642,63 @@ export default {
       this.formValidate.upload_type = res.data.type;
       this.currentTab = res.data.type.toString();
       this.changeTab();
+      // 加载待同步文件数量
+      this.fetchSyncCount();
     });
   },
   methods: {
+    // 获取待同步文件数量
+    fetchSyncCount() {
+      storageSyncCountApi().then((res) => {
+        this.syncCount = res.data.count || 0;
+      }).catch(() => {
+        this.syncCount = 0;
+      });
+    },
+    // 开始同步
+    async startSync() {
+      this.syncing = true;
+      this.syncTotal = this.syncCount; // 保存初始总数用于进度计算
+      this.syncProgress = { success: 0, failed: 0, remaining: this.syncCount };
+      
+      try {
+        // 循环同步直到没有剩余文件
+        while (this.syncProgress.remaining > 0) {
+          const res = await storageSyncStartApi(5);
+          // CRMEB 成功响应会有 data 对象
+          if (res.data) {
+            this.syncProgress.success += res.data.success || 0;
+            this.syncProgress.failed += res.data.failed || 0;
+            this.syncProgress.remaining = res.data.remaining || 0;
+            this.syncCount = res.data.remaining || 0;
+            
+            // 用返回的 total 更新，确保准确
+            if (res.data.total) {
+              this.syncTotal = res.data.total + this.syncProgress.success + this.syncProgress.failed;
+            }
+            
+            // 如果没有成功也没有失败，说明没有文件了
+            if (res.data.success === 0 && res.data.failed === 0) {
+              break;
+            }
+          } else {
+            this.$message.error(res.msg || '同步失败');
+            break;
+          }
+        }
+        
+        if (this.syncProgress.failed === 0) {
+          this.$message.success('🎉 同步完成！所有文件已上传到云存储');
+        } else {
+          this.$message.warning(`同步完成，${this.syncProgress.failed} 个文件失败`);
+        }
+      } catch (err) {
+        this.$message.error(err.msg || '同步出错，请重试');
+      } finally {
+        this.syncing = false;
+        this.fetchSyncCount();
+      }
+    },
     insertCopy(text) {
       this.$copyText(text)
         .then((message) => {
@@ -934,5 +1059,134 @@ h3 {
 }
 .save-type {
   font-size: 12px;
+}
+/* 同步卡片样式 */
+.sync-card {
+  border: 1px solid #e8f4ff;
+  background: linear-gradient(135deg, #f6fbff 0%, #fff 100%);
+}
+.sync-header {
+  display: flex;
+  align-items: center;
+}
+.sync-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+.sync-section {
+  padding: 15px 0;
+}
+.sync-info {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.sync-icon {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+.sync-icon i {
+  font-size: 24px;
+  color: #fff;
+}
+.sync-text {
+  flex: 1;
+}
+.sync-desc {
+  color: #606266;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.sync-stats {
+  display: flex;
+  align-items: baseline;
+}
+.sync-count-label {
+  color: #909399;
+  font-size: 14px;
+}
+.sync-count-number {
+  color: #409eff;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 4px;
+}
+.sync-count-unit {
+  color: #909399;
+  font-size: 14px;
+}
+/* 进度条样式 */
+.sync-progress-area {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.progress-bar-container {
+  height: 12px;
+  background: #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #67c23a 0%, #85ce61 100%);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.progress-percent {
+  font-size: 18px;
+  font-weight: 700;
+  color: #67c23a;
+}
+.progress-detail {
+  font-size: 13px;
+  color: #606266;
+}
+.progress-detail span {
+  margin-left: 12px;
+}
+.progress-detail .success {
+  color: #67c23a;
+}
+.progress-detail .failed {
+  color: #f56c6c;
+}
+.progress-detail .remaining {
+  color: #909399;
+}
+/* 操作按钮区域 */
+.sync-actions {
+  display: flex;
+  align-items: center;
+}
+.sync-btn {
+  min-width: 120px;
+}
+.sync-btn i {
+  margin-right: 4px;
+}
+.sync-tip {
+  margin-left: 16px;
+  color: #67c23a;
+  font-size: 14px;
+}
+.sync-tip i {
+  margin-right: 4px;
 }
 </style>

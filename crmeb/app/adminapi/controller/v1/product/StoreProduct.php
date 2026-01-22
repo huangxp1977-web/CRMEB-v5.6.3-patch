@@ -396,8 +396,18 @@ class StoreProduct extends AuthController
      */
     public function getTempKeys(Request $request)
     {
-        $upload = UploadService::init();
         $type = (int)sys_config('upload_type', 1);
+        
+        // 云存储类型需要检查空间是否已启用
+        if ($type !== 1) {
+            $storageServices = app()->make(\app\services\system\config\SystemStorageServices::class);
+            $config = $storageServices->getConfig($type);
+            if (empty($config['name'])) {
+                return app('json')->fail('云存储空间未启用，请先启用存储空间或切换为本地存储');
+            }
+        }
+        
+        $upload = UploadService::init();
         $key = $request->get('key', '');
         $path = $request->get('path', '');
         $contentType = $request->get('contentType', '');

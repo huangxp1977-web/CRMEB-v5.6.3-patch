@@ -384,14 +384,20 @@ class Local extends BaseUpload
      */
     public function delete(string $filePath)
     {
+        // 如果是相对路径，转换为绝对路径
+        if (strpos($filePath, '/') !== 0 && !file_exists($filePath)) {
+            $filePath = app()->getRootPath() . 'public/' . $filePath;
+        }
+        
         if (file_exists($filePath)) {
             try {
                 $fileArr = explode('/', $filePath);
                 $fileName = end($fileArr);
                 unlink($filePath);
-                unlink(str_replace($fileName, 'big_' . $fileName, $filePath));
-                unlink(str_replace($fileName, 'mid_' . $fileName, $filePath));
-                unlink(str_replace($fileName, 'small_' . $fileName, $filePath));
+                // 删除缩略图（静默处理，不存在也不报错）
+                @unlink(str_replace($fileName, 'big_' . $fileName, $filePath));
+                @unlink(str_replace($fileName, 'mid_' . $fileName, $filePath));
+                @unlink(str_replace($fileName, 'small_' . $fileName, $filePath));
                 return true;
             } catch (\Exception $e) {
                 return $this->setError($e->getMessage());

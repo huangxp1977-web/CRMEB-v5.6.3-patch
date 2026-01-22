@@ -312,7 +312,8 @@ export default {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
     const name = new Date().getTime();
-    return `attach/${year}/${month}/${name}` + suffix;
+    return `uploads/attach/${year}/${month}/${day}/${name}` + suffix;
   },
 };

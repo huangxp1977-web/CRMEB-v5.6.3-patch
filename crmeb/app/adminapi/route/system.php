@@ -42,6 +42,10 @@ Route::group('system', function () {
         Route::delete('config/storage/:id', 'v1.setting.SystemStorage/delete')->name('SystemStorageDelete')->option(['real_name' => '删除云存储']);
         //修改云存储状态
         Route::put('config/storage/status/:id', 'v1.setting.SystemStorage/status')->name('SystemStorageStatus')->option(['real_name' => '修改云存储状态']);
+        //获取待同步本地文件数量
+        Route::get('config/storage/sync/count', 'v1.setting.SystemStorage/syncCount')->name('SystemStorageSyncCount')->option(['real_name' => '获取待同步本地文件数量']);
+        //执行本地文件同步到云存储
+        Route::post('config/storage/sync/start', 'v1.setting.SystemStorage/syncStart')->name('SystemStorageSyncStart')->option(['real_name' => '执行本地文件同步到云存储']);
     })->option(['parent' => 'system', 'cate_name' => '存储配置']);
 
     /** 系统日志 */

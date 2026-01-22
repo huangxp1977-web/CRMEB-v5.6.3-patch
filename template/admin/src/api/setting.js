@@ -1015,6 +1015,27 @@ export function saveType(type) {
 }
 
 /**
+ * @description 储存配置-获取待同步本地文件数量
+ */
+export function storageSyncCountApi() {
+  return request({
+    url: `system/config/storage/sync/count`,
+    method: 'get',
+  });
+}
+
+/**
+ * @description 储存配置-执行本地文件同步到云存储
+ */
+export function storageSyncStartApi(limit) {
+  return request({
+    url: `system/config/storage/sync/start`,
+    method: 'post',
+    data: { limit },
+  });
+}
+
+/**
  * @description 多语言-语言类型列表
  */
 export function langTypeList(data) {

@@ -578,4 +578,406 @@ class SystemStorageServices extends BaseServices
 
         return true;
     }
+
+    /**
+     * 获取待同步的本地文件数量（包含图片和视频）
+     * @return int
+     */
+    public function getPendingSyncCount(): int
+    {
+        $uploadType = (int)sys_config('upload_type', 1);
+        // 仅当当前存储类型不是本地时才有同步需求
+        if ($uploadType === 1) {
+            return 0;
+        }
+        // 直接查询数据库，确保包含所有 module_type（图片和视频）
+        return \app\model\system\attachment\SystemAttachment::where('image_type', 1)->count();
+    }
+
+    /**
+     * 执行本地文件同步到云存储
+     * @param int $limit 每批处理数量
+     * @return array ['success' => int, 'failed' => int, 'remaining' => int, 'total' => int, 'errors' => array]
+     */
+    public function syncLocalToCloud(int $limit = 5): array
+    {
+        $uploadType = (int)sys_config('upload_type', 1);
+        if ($uploadType === 1) {
+            throw new AdminException('当前存储类型为本地，无需同步');
+        }
+
+        // 直接查询模型，不经过 DAO 以避免 module_type 过滤
+        $list = \app\model\system\attachment\SystemAttachment::where('image_type', 1)
+            ->limit($limit)
+            ->select()
+            ->toArray();
+        
+        // 获取总数用于进度显示
+        $total = \app\model\system\attachment\SystemAttachment::where('image_type', 1)->count();
+        
+        if (empty($list)) {
+            // 同步完成，清理空目录
+            $this->cleanEmptyDirectories();
+            
+            // 同步完成后，自动更新商品表中的图片URL域名
+            // 从站点URL获取旧域名，从云存储配置获取新域名
+            $siteUrl = sys_config('site_url', '');
+            $uploadType = (int)sys_config('upload_type', 1);
+            $storageConfig = $this->getConfig($uploadType);  // 使用 getConfig 获取完整配置（包含 domain）
+            $newDomain = $storageConfig['domain'] ?? '';
+            
+            if ($siteUrl && $newDomain) {
+                // 提取域名部分（去掉协议）
+                $oldDomainParsed = parse_url($siteUrl, PHP_URL_HOST);
+                $newDomainParsed = parse_url($newDomain, PHP_URL_HOST) ?: $newDomain;
+                
+                if ($oldDomainParsed && $newDomainParsed && $oldDomainParsed !== $newDomainParsed) {
+                    $this->updateProductTableUrls($oldDomainParsed, $newDomainParsed);
+                }
+            }
+            
+            // 清除系统缓存，确保DIY装修页面等使用最新数据
+            CacheService::clear();
+            
+            return ['success' => 0, 'failed' => 0, 'remaining' => 0, 'total' => $total, 'errors' => []];
+        }
+
+        $upload = \app\services\other\UploadService::init($uploadType);
+        /** @var \app\services\system\attachment\SystemAttachmentServices $attachmentServices */
+        $attachmentServices = app()->make(\app\services\system\attachment\SystemAttachmentServices::class);
+        $success = 0;
+        $failed = 0;
+        $errors = [];
+        $dirsToCheck = [];
+
+        foreach ($list as $item) {
+            try {
+                // 构建本地文件路径
+                $localPath = $item['att_dir'];
+                
+                // 如果是完整URL，提取路径部分
+                if (strpos($localPath, 'http') === 0) {
+                    $parsed = parse_url($localPath);
+                    $localPath = isset($parsed['path']) ? $parsed['path'] : $localPath;
+                }
+                
+                if (strpos($localPath, '/') === 0) {
+                    $localPath = ltrim($localPath, '/');
+                }
+                $fullPath = app()->getRootPath() . 'public/' . $localPath;
+                
+                // 记录目录以便稍后检查清理
+                $dir = dirname($fullPath);
+                if (!in_array($dir, $dirsToCheck)) {
+                    $dirsToCheck[] = $dir;
+                }
+                
+                if (!file_exists($fullPath)) {
+                    // 文件不存在，记录错误并跳过，不要修改数据库
+                    $errors[] = "本地文件丢失: {$item['att_dir']}";
+                    $failed++;
+                    continue;
+                }
+
+                // 读取文件内容
+                $fileContent = file_get_contents($fullPath);
+                if ($fileContent === false) {
+                    $errors[] = "读取文件失败: {$item['att_dir']}";
+                    $failed++;
+                    continue;
+                }
+
+                // 生成云存储路径（保持原有目录结构）
+                $key = $localPath;
+                
+                // 上传到云存储
+                $result = $upload->stream($fileContent, $key);
+                if ($result === false || (is_object($result) && isset($result->error))) {
+                    $errors[] = "上传失败: {$item['att_dir']} - " . ($upload->getError() ?: '未知错误');
+                    $failed++;
+                    continue;
+                }
+
+                // 获取云存储 URL
+                $cloudUrl = is_object($result) ? $result->filePath : $result['filePath'] ?? '';
+                if (empty($cloudUrl)) {
+                    $errors[] = "获取云存储URL失败: {$item['att_dir']}";
+                    $failed++;
+                    continue;
+                }
+
+                // 更新数据库记录
+                $updateData = [
+                    'att_dir' => $cloudUrl,
+                    'satt_dir' => $cloudUrl,
+                    'image_type' => $uploadType
+                ];
+                $attachmentServices->update($item['att_id'], $updateData);
+
+                // 删除本地原文件
+                @unlink($fullPath);
+                
+                // 删除本地缩略图（big_, mid_, small_ 前缀版本）
+                $this->deleteThumbnails($fullPath);
+
+                $success++;
+            } catch (\Throwable $e) {
+                $errors[] = "处理失败: {$item['att_dir']} - " . $e->getMessage();
+                $failed++;
+            }
+        }
+
+        // 获取剩余待同步数量
+        $remaining = \app\model\system\attachment\SystemAttachment::where('image_type', 1)->count();
+
+        // 清理处理过的空目录
+        foreach ($dirsToCheck as $dir) {
+            $this->removeEmptyDir($dir);
+        }
+
+        CacheService::clear();
+
+        return compact('success', 'failed', 'remaining', 'total', 'errors');
+    }
+
+    /**
+     * 递归删除空目录
+     * @param string $dir
+     */
+    private function removeEmptyDir(string $dir): void
+    {
+        $uploadsRoot = app()->getRootPath() . 'public/uploads';
+        
+        // 安全检查：只删除 uploads 目录下的内容
+        if (strpos($dir, $uploadsRoot) !== 0 || $dir === $uploadsRoot) {
+            return;
+        }
+        
+        // 检查目录是否存在且为空
+        if (is_dir($dir) && count(scandir($dir)) === 2) { // 只有 . 和 ..
+            @rmdir($dir);
+            // 递归检查父目录
+            $this->removeEmptyDir(dirname($dir));
+        }
+    }
+
+    /**
+     * 清理所有空目录
+     */
+    private function cleanEmptyDirectories(): void
+    {
+        $uploadsRoot = app()->getRootPath() . 'public/uploads';
+        $this->cleanEmptyDirs($uploadsRoot);
+    }
+
+    /**
+     * 递归清理空目录
+     * @param string $dir
+     */
+    private function cleanEmptyDirs(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $files = scandir($dir);
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $path = $dir . '/' . $file;
+            if (is_dir($path)) {
+                $this->cleanEmptyDirs($path);
+            }
+        }
+        
+        // 再次检查目录是否为空
+        $uploadsRoot = app()->getRootPath() . 'public/uploads';
+        if ($dir !== $uploadsRoot && count(scandir($dir)) === 2) {
+            @rmdir($dir);
+        }
+    }
+
+    /**
+     * 删除文件对应的缩略图（big_, mid_, small_ 前缀版本）
+     * @param string $fullPath 原文件完整路径
+     */
+    private function deleteThumbnails(string $fullPath): void
+    {
+        $dir = dirname($fullPath);
+        $filename = basename($fullPath);
+        
+        // 缩略图前缀
+        $prefixes = ['big_', 'mid_', 'small_'];
+        
+        foreach ($prefixes as $prefix) {
+            $thumbPath = $dir . '/' . $prefix . $filename;
+            if (file_exists($thumbPath)) {
+                @unlink($thumbPath);
+            }
+        }
+    }
+
+    /**
+     * 同步完成后更新所有图片引用表中的URL域名
+     * 将旧的本地域名替换为云存储域名
+     * @param string $oldDomain 旧域名（如 mall.aesthmed.cn）
+     * @param string $newDomain 新域名（如 media.aesthmed.cn）
+     * @return array ['updated' => int, 'tables' => array]
+     */
+    public function updateProductTableUrls(string $oldDomain, string $newDomain): array
+    {
+        $updated = 0;
+        $tables = [];
+        
+        // 只替换 /uploads/ 路径，不替换 /statics/ 等系统静态资源
+        $oldPattern = $oldDomain . '/uploads/';
+        $newPattern = $newDomain . '/uploads/';
+
+        // 1. 更新商品主图、视频和轮播图
+        $count = \think\facade\Db::name('store_product')
+            ->where('image|video_link', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')"),
+                'video_link' => \think\facade\Db::raw("REPLACE(video_link, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        $count += \think\facade\Db::name('store_product')
+            ->where('slider_image', 'like', "%{$oldPattern}%")
+            ->update([
+                'slider_image' => \think\facade\Db::raw("REPLACE(slider_image, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_product';
+            $updated += $count;
+        }
+
+        // 2. 更新商品详情 (富文本HTML)
+        $count = \think\facade\Db::name('store_product_description')
+            ->where('description', 'like', "%{$oldPattern}%")
+            ->update([
+                'description' => \think\facade\Db::raw("REPLACE(description, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_product_description';
+            $updated += $count;
+        }
+
+        // 3. 更新 SKU 规格图片
+        $count = \think\facade\Db::name('store_product_attr_value')
+            ->where('image', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_product_attr_value';
+            $updated += $count;
+        }
+
+        // 4. 更新商品分类图标和大图
+        $count = \think\facade\Db::name('store_category')
+            ->where('pic|big_pic', 'like', "%{$oldPattern}%")
+            ->update([
+                'pic' => \think\facade\Db::raw("REPLACE(pic, '{$oldPattern}', '{$newPattern}')"),
+                'big_pic' => \think\facade\Db::raw("REPLACE(big_pic, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_category';
+            $updated += $count;
+        }
+
+        // 5. 更新文章封面图
+        $count = \think\facade\Db::name('article')
+            ->where('image_input', 'like', "%{$oldPattern}%")
+            ->update([
+                'image_input' => \think\facade\Db::raw("REPLACE(image_input, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'article';
+            $updated += $count;
+        }
+
+        // 6. 更新文章详情 (富文本HTML)
+        $count = \think\facade\Db::name('article_content')
+            ->where('content', 'like', "%{$oldPattern}%")
+            ->update([
+                'content' => \think\facade\Db::raw("REPLACE(content, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'article_content';
+            $updated += $count;
+        }
+
+        // 7. 更新系统配置 (Logo、H5配置等) - 只替换 /uploads/ 路径
+        $count = \think\facade\Db::name('system_config')
+            ->where('value', 'like', "%{$oldPattern}%")
+            ->update([
+                'value' => \think\facade\Db::raw("REPLACE(value, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'system_config';
+            $updated += $count;
+        }
+
+        // 8. 更新渠道二维码
+        $count = \think\facade\Db::name('wechat_qrcode')
+            ->where('image', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'wechat_qrcode';
+            $updated += $count;
+        }
+
+        // 9. 更新DIY装修页面 - 只替换 /uploads/ 路径
+        $count = \think\facade\Db::name('diy')
+            ->where('value', 'like', "%{$oldPattern}%")
+            ->update([
+                'value' => \think\facade\Db::raw("REPLACE(value, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'diy';
+            $updated += $count;
+        }
+
+        // 10. 更新秒杀活动
+        $count = \think\facade\Db::name('store_seckill')
+            ->where('image|images', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')"),
+                'images' => \think\facade\Db::raw("REPLACE(images, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_seckill';
+            $updated += $count;
+        }
+
+        // 11. 更新砍价活动
+        $count = \think\facade\Db::name('store_bargain')
+            ->where('image|images', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')"),
+                'images' => \think\facade\Db::raw("REPLACE(images, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_bargain';
+            $updated += $count;
+        }
+
+        // 12. 更新拼团活动
+        $count = \think\facade\Db::name('store_combination')
+            ->where('image|images', 'like', "%{$oldPattern}%")
+            ->update([
+                'image' => \think\facade\Db::raw("REPLACE(image, '{$oldPattern}', '{$newPattern}')"),
+                'images' => \think\facade\Db::raw("REPLACE(images, '{$oldPattern}', '{$newPattern}')")
+            ]);
+        if ($count) {
+            $tables[] = 'store_combination';
+            $updated += $count;
+        }
+
+        return compact('updated', 'tables');
+    }
 }
+
+

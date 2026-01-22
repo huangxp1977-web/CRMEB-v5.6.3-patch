@@ -258,4 +258,32 @@ class SystemStorage extends AuthController
         }
         return app('json')->success($msg);
     }
+
+    /**
+     * 获取待同步的本地文件数量
+     * @return mixed
+     */
+    public function syncCount()
+    {
+        $count = $this->services->getPendingSyncCount();
+        return app('json')->success(['count' => $count]);
+    }
+
+    /**
+     * 执行本地文件同步到云存储
+     * @return mixed
+     */
+    public function syncStart()
+    {
+        $limit = (int)$this->request->post('limit', 20);
+        $limit = min(max($limit, 1), 100); // 限制范围 1-100
+        
+        try {
+            $result = $this->services->syncLocalToCloud($limit);
+            return app('json')->success($result);
+        } catch (\Throwable $e) {
+            return app('json')->fail($e->getMessage());
+        }
+    }
 }
+

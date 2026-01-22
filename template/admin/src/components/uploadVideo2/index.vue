@@ -419,6 +419,9 @@ export default {
           .catch((res) => {
             that.$message.error(res);
           });
+      }).catch((err) => {
+        that.$message.error(err.msg || '获取上传配置失败');
+        that.$refs.refid.value = ''; // 重置input，允许重复选择
       });
     },
     videoSaveToUrl(file) {
