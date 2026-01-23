@@ -37,7 +37,7 @@ class SyncMessageJob extends BaseJobs
                 $tempid = MiniProgramService::addSubscribeTemplate($key, $kid, $data['name']);
             } catch (\Throwable $e) {
                 Log::error('同步订阅消息失败：' . $e->getMessage());
-                return true;
+                return false;
             }
             app()->make(SystemNotificationServices::class)->update(['routine_tempkey' => $key], ['routine_tempid' => $tempid, 'routine_kid' => json_encode($kid)]);
             return true;
@@ -65,11 +65,15 @@ class SyncMessageJob extends BaseJobs
             $res = WechatService::addTemplateId($key, $name);
         } catch (\Throwable $e) {
             Log::error('同步模版消息失败：' . $e->getMessage());
-            return true;
+            return false;
         }
+        // 兼容 EasyWeChat V6 返回数组格式
         if (empty($res['errcode']) && !empty($res['template_id'])) {
             app()->make(SystemNotificationServices::class)->update(['wechat_tempkey' => $key], ['wechat_tempid' => $res['template_id']]);
+            return true;
+        } else {
+            Log::error('同步模版消息失败：errcode=' . ($res['errcode'] ?? 'null') . ', errmsg=' . ($res['errmsg'] ?? 'null'));
+            return false;
         }
-        return true;
     }
 }
