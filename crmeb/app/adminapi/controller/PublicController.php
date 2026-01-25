@@ -127,7 +127,7 @@ class PublicController
         ];
         if (function_exists('exec')) {
             $workermanOutput = $timerOutput = $queueOutput = [];
-            exec("ps aux | grep 'php think workerman' | grep -v grep", $workermanOutput);
+            exec("ps aux | grep -E 'php think workerman|WorkerMan' | grep -v grep", $workermanOutput);
             exec("ps aux | grep 'php think timer' | grep -v grep", $timerOutput);
             $timerStatus = count($timerOutput) > 0;
             // 兼容 URL 触发模式：如果进程没找到，检查 .timer 文件的更新时间
