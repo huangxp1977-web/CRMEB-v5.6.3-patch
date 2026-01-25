@@ -49,7 +49,7 @@ class TradeStatistic extends AuthController
         foreach ($totalleft as $k => $v) {
             $left['name'] = "当日订单金额";
             $left['x'] = $v['curve']['x'];
-            $left['series'][$k]['money'] = round($v['total_money'], 2);
+            $left['series'][$k]['money'] = round((float)$v['total_money'], 2);
             $left['series'][$k]['value'] = array_values($v['curve']['y']);
         }
 

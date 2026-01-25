@@ -95,8 +95,8 @@ class Common extends AuthController
     public function growth($nowValue, $lastValue)
     {
        if ($lastValue == 0 && $nowValue == 0) return 0;
-       if ($lastValue == 0) return round($nowValue, 2);
-       if ($nowValue == 0) return -round($lastValue, 2);
+       if ($lastValue == 0) return round((float)$nowValue, 2);
+       if ($nowValue == 0) return -round((float)$lastValue, 2);
        return bcmul(bcdiv((bcsub($nowValue, $lastValue, 2)), $lastValue, 2), 100, 2);
     }
 

@@ -354,13 +354,13 @@ class StoreOrderSplitServices extends BaseServices
             $new_cart_info[$field] = bcmul((string)$cart_num, bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), $scale);
             if ($orderType == 'new') {//拆出
                 if ($field == 'sum_true_price') {
-                    $new_cart_info[$field] = round(bcmul((string)$cart_num, bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), 4), 2, PHP_ROUND_HALF_UP);
+                    $new_cart_info[$field] = round((float)bcmul((string)$cart_num, bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), 4), 2, PHP_ROUND_HALF_UP);
                 } else {
                     $new_cart_info[$field] = bcmul((string)$cart_num, bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), $scale);
                 }
             } else {
                 if ($field == 'sum_true_price') {
-                    $field_number = round(bcmul((string)bcsub((string)$cart_info['cart_num'], (string)$cart_num, 0), bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), 4), 2, PHP_ROUND_HALF_UP);
+                    $field_number = round((float)bcmul((string)bcsub((string)$cart_info['cart_num'], (string)$cart_num, 0), bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), 4), 2, PHP_ROUND_HALF_UP);
                 } else {
                     $field_number = bcmul((string)bcsub((string)$cart_info['cart_num'], (string)$cart_num, 0), bcdiv((string)$cart_info[$field], (string)$cart_info['cart_num'], 4), $scale);
                 }

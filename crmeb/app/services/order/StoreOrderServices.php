@@ -924,7 +924,7 @@ HTML;
                 foreach ($cycle_list as $k => $v) {
                     $data['day'][] = $v['day'];
                     $data['count'][] = $v['count'];
-                    $data['price'][] = round($v['price'], 2);
+                    $data['price'][] = round((float)$v['price'], 2);
                     if ($chartdata['yAxis']['maxnum'] < $v['count'])
                         $chartdata['yAxis']['maxnum'] = $v['count'];//日最大订单数
                     if ($chartdata['yAxis']['maxprice'] < $v['price'])
@@ -987,14 +987,14 @@ HTML;
                     $pre_total['count'] = $pre_total['count'] == 0 ? 1 : $pre_total['count'];
                     $chartdata['cycle']['count'] = [
                         'data' => $total['count'] ?: 0,
-                        'percent' => round((abs($cha_count) / intval($pre_total['count']) * 100), 2),
+                        'percent' => round((float)(abs($cha_count) / intval($pre_total['count']) * 100), 2),
                         'is_plus' => $cha_count > 0 ? -1 : ($cha_count == 0 ? 0 : 1)
                     ];
-                    $cha_price = round($pre_total['price'], 2) - round($total['price'], 2);
+                    $cha_price = round((float)$pre_total['price'], 2) - round((float)$total['price'], 2);
                     $pre_total['price'] = $pre_total['price'] == 0 ? 1 : $pre_total['price'];
                     $chartdata['cycle']['price'] = [
                         'data' => $total['price'] ?: 0,
-                        'percent' => round(abs($cha_price) / $pre_total['price'] * 100, 2),
+                        'percent' => round((float)(abs($cha_price) / $pre_total['price'] * 100), 2),
                         'is_plus' => $cha_price > 0 ? -1 : ($cha_price == 0 ? 0 : 1)
                     ];
                 }
@@ -1036,9 +1036,9 @@ HTML;
                 foreach ($weekarray as $k => $v) {
                     $data['day'][] = $v[0];
                     $data['pre']['count'][] = $v['pre']['count'];
-                    $data['pre']['price'][] = round($v['pre']['price'], 2);
+                    $data['pre']['price'][] = round((float)$v['pre']['price'], 2);
                     $data['now']['count'][] = $v['now']['count'];
-                    $data['now']['price'][] = round($v['now']['price'], 2);
+                    $data['now']['price'][] = round((float)$v['now']['price'], 2);
                     if ($chartdata['yAxis']['maxnum'] < $v['pre']['count'] || $chartdata['yAxis']['maxnum'] < $v['now']['count']) {
                         $chartdata['yAxis']['maxnum'] = $v['pre']['count'] > $v['now']['count'] ? $v['pre']['count'] : $v['now']['count'];//日最大订单数
                     }
@@ -1142,14 +1142,14 @@ HTML;
                     $pre_total['count'] = $pre_total['count'] == 0 ? 1 : $pre_total['count'];
                     $chartdata['cycle']['count'] = [
                         'data' => $total['count'] ?: 0,
-                        'percent' => round((abs($cha_count) / intval($pre_total['count']) * 100), 2),
+                        'percent' => round((float)(abs($cha_count) / intval($pre_total['count']) * 100), 2),
                         'is_plus' => $cha_count > 0 ? -1 : ($cha_count == 0 ? 0 : 1)
                     ];
-                    $cha_price = round($pre_total['price'], 2) - round($total['price'], 2);
+                    $cha_price = round((float)$pre_total['price'], 2) - round((float)$total['price'], 2);
                     $pre_total['price'] = $pre_total['price'] == 0 ? 1 : $pre_total['price'];
                     $chartdata['cycle']['price'] = [
                         'data' => $total['price'] ?: 0,
-                        'percent' => round(abs($cha_price) / $pre_total['price'] * 100, 2),
+                        'percent' => round((float)(abs($cha_price) / $pre_total['price'] * 100), 2),
                         'is_plus' => $cha_price > 0 ? -1 : ($cha_price == 0 ? 0 : 1)
                     ];
                 }
@@ -1192,9 +1192,9 @@ HTML;
                 foreach ($weekarray as $k => $v) {
                     $data['day'][] = $v[0];
                     $data['pre']['count'][] = $v['pre']['count'];
-                    $data['pre']['price'][] = round($v['pre']['price'], 2);
+                    $data['pre']['price'][] = round((float)$v['pre']['price'], 2);
                     $data['now']['count'][] = $v['now']['count'];
-                    $data['now']['price'][] = round($v['now']['price'], 2);
+                    $data['now']['price'][] = round((float)$v['now']['price'], 2);
                     if ($chartdata['yAxis']['maxnum'] < $v['pre']['count'] || $chartdata['yAxis']['maxnum'] < $v['now']['count']) {
                         $chartdata['yAxis']['maxnum'] = $v['pre']['count'] > $v['now']['count'] ? $v['pre']['count'] : $v['now']['count'];//日最大订单数
                     }
@@ -1299,14 +1299,14 @@ HTML;
                     $pre_total['count'] = $pre_total['count'] == 0 ? 1 : $pre_total['count'];
                     $chartdata['cycle']['count'] = [
                         'data' => $total['count'] ?: 0,
-                        'percent' => round((abs($cha_count) / intval($pre_total['count']) * 100), 2),
+                        'percent' => round((float)(abs($cha_count) / intval($pre_total['count']) * 100), 2),
                         'is_plus' => $cha_count > 0 ? -1 : ($cha_count == 0 ? 0 : 1)
                     ];
-                    $cha_price = round($pre_total['price'], 2) - round($total['price'], 2);
+                    $cha_price = round((float)$pre_total['price'], 2) - round((float)$total['price'], 2);
                     $pre_total['price'] = $pre_total['price'] == 0 ? 1 : $pre_total['price'];
                     $chartdata['cycle']['price'] = [
                         'data' => $total['price'] ?: 0,
-                        'percent' => round(abs($cha_price) / $pre_total['price'] * 100, 2),
+                        'percent' => round((float)(abs($cha_price) / $pre_total['price'] * 100), 2),
                         'is_plus' => $cha_price > 0 ? -1 : ($cha_price == 0 ? 0 : 1)
                     ];
                 }
@@ -1348,9 +1348,9 @@ HTML;
                 foreach ($weekarray as $k => $v) {
                     $data['day'][] = $v[0];
                     $data['pre']['count'][] = $v['pre']['count'];
-                    $data['pre']['price'][] = round($v['pre']['price'], 2);
+                    $data['pre']['price'][] = round((float)$v['pre']['price'], 2);
                     $data['now']['count'][] = $v['now']['count'];
-                    $data['now']['price'][] = round($v['now']['price'], 2);
+                    $data['now']['price'][] = round((float)$v['now']['price'], 2);
                     if ($chartdata['yAxis']['maxnum'] < $v['pre']['count'] || $chartdata['yAxis']['maxnum'] < $v['now']['count']) {
                         $chartdata['yAxis']['maxnum'] = $v['pre']['count'] > $v['now']['count'] ? $v['pre']['count'] : $v['now']['count'];//日最大订单数
                     }
@@ -1454,14 +1454,14 @@ HTML;
                     $pre_total['count'] = $pre_total['count'] == 0 ? 1 : $pre_total['count'];
                     $chartdata['cycle']['count'] = [
                         'data' => $total['count'] ?: 0,
-                        'percent' => round((abs($cha_count) / intval($pre_total['count']) * 100), 2),
+                        'percent' => round((float)(abs($cha_count) / intval($pre_total['count']) * 100), 2),
                         'is_plus' => $cha_count > 0 ? -1 : ($cha_count == 0 ? 0 : 1)
                     ];
-                    $cha_price = round($pre_total['price'], 2) - round($total['price'], 2);
+                    $cha_price = round((float)$pre_total['price'], 2) - round((float)$total['price'], 2);
                     $pre_total['price'] = $pre_total['price'] == 0 ? 1 : $pre_total['price'];
                     $chartdata['cycle']['price'] = [
                         'data' => $total['price'] ?: 0,
-                        'percent' => round(abs($cha_price) / $pre_total['price'] * 100, 2),
+                        'percent' => round((float)(abs($cha_price) / $pre_total['price'] * 100), 2),
                         'is_plus' => $cha_price > 0 ? -1 : ($cha_price == 0 ? 0 : 1)
                     ];
                 }
