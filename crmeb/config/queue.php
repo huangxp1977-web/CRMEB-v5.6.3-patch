@@ -15,15 +15,15 @@ return [
     'prefix'      => 'crmeb_',
     'connections' => [
         'sync'     => [
-            'driver' => 'sync',
+            'type' => 'sync',
         ],
         'database' => [
-            'driver' => 'database',
-            'queue'  => 'default',
-            'table'  => 'jobs',
+            'type'  => 'database',
+            'queue' => 'default',
+            'table' => 'jobs',
         ],
         'redis'    => [
-            'driver'     => 'redis',
+            'type'       => 'redis',
             'queue'      => 'CRMEB' . Env::get('queue.queue_name', ''),
             'host'       => Env::get('redis.redis_hostname', '127.0.0.1'),
             'port'       => Env::get('redis.port', 6379),

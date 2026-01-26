@@ -61,6 +61,7 @@ export default {
           message: '您有一个新的订单,ID为(' + data.order_id + '),请注意查看',
         });
         if (newOrderAudioLink) newOrderAudioLink.play();
+        that.getNotict();
         that.messageList.push({
           title: '新订单提醒',
           icon: 'md-bulb',
@@ -75,6 +76,7 @@ export default {
           message: '您有一个订单申请退款,ID为(' + data.order_id + '),请注意查看',
         });
         if (newOrderAudioLink) newOrderAudioLink.play();
+        that.getNotict();
         that.messageList.push({
           title: '退款订单提醒',
           icon: 'md-information',
@@ -93,6 +95,7 @@ export default {
           title: '提现提醒',
           message: '有用户申请提现,编号为(' + data.id + '),请注意查看',
         });
+        that.getNotict();
         that.messageList.push({
           title: '退款订单提醒',
           icon: 'md-people',
@@ -106,6 +109,7 @@ export default {
           title: '库存预警',
           message: '商品ID为(' + data.id + ')的库存不足啦,请注意查看~',
         });
+        that.getNotict();
         that.messageList.push({
           title: '库存预警',
           icon: 'md-information',
@@ -119,6 +123,7 @@ export default {
           title: '短信充值成功',
           message: '恭喜您充值' + data.price + '元，获得' + data.number + '条短信',
         });
+        that.getNotict();
         that.messageList.push({
           title: '短信充值成功',
           icon: 'md-bulb',
