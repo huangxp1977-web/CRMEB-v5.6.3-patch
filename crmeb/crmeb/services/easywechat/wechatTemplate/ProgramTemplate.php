@@ -129,9 +129,15 @@ class ProgramTemplate
      */
     public function addTemplate($shortId, $content)
     {
-        $params = ['template_id_short' => $shortId, 'keyword_name_list' => $content];
+        $params = [
+            'template_id_short' => $shortId,
+            'keyword_name_list' => $content
+        ];
+
         return $this->request('POST', self::API_ADD_TEMPLATE, $params);
     }
+
+
 
     /**
      * Get private templates.
@@ -270,7 +276,8 @@ class ProgramTemplate
         
         if (strtoupper($method) === 'POST') {
             curl_setopt($curl, CURLOPT_POST, true);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
+            // [Fix] Enforce JSON_UNESCAPED_UNICODE to prevent 40246 errors
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params, JSON_UNESCAPED_UNICODE));
             curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         }
         
